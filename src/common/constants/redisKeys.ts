@@ -12,6 +12,9 @@ export const redisKeys = {
   /** Action-confirmation OTP (e.g. course deletion), scoped by purpose. */
   otpAction: (purpose: string, email: string) => `otp:action:${purpose}:${email}`,
 
+  /** DEV ONLY — plaintext OTP for local testing. Never written/read in production. */
+  otpDev: (email: string) => `otp:dev:${email}`,
+
   /** Session record: { userId, role, deviceId, ip, userAgent, createdAt }. TTL = sessionTtlSeconds. */
   session: (sessionId: string) => `session:${sessionId}`,
 

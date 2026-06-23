@@ -80,6 +80,12 @@ export async function requestOtp(rawEmail: string, _ctx: RequestContext): Promis
   await redis.set(redisKeys.otp(email), JSON.stringify(record), 'EX', env.otpTtlSeconds);
   await redis.set(cooldownKey, '1', 'EX', env.otpResendCooldownSeconds);
 
+  // DEV ONLY: stash the plaintext OTP so the dev-only /auth/dev/otp route can return it
+  // for local testing. This key is never written in production.
+  if (!env.isProd) {
+    await redis.set(redisKeys.otpDev(email), otp, 'EX', env.otpTtlSeconds);
+  }
+
   await enqueueEmail({
     type: 'otp',
     to: email,
@@ -204,6 +210,12 @@ export async function loginWithTrustedDevice(
 }
 
 // ── Current user ────────────────────────────────────────────────────────────────
+
+/** DEV ONLY — fetch the last plaintext OTP for an email (local testing convenience). */
+export async function getDevOtp(rawEmail: string): Promise<string | null> {
+  if (env.isProd) return null;
+  return redis.get(redisKeys.otpDev(normalizeEmail(rawEmail)));
+}
 
 export async function getCurrentUser(userId: string): Promise<PublicUser> {
   const user = await findById(userId);

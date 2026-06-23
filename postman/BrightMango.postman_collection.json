@@ -1,0 +1,476 @@
+{
+  "info": {
+    "name": "BrightMango LMS API",
+    "description": "BrightMango backend. Cookie-based session auth (bm_session) — Postman's cookie jar persists it automatically. Run the Auth folder first.\n\nVariables: baseUrl, mentorEmail, studentEmail, otp, courseId, courseSlug, chapterId, lessonId, couponId, enrollmentId, sessionId, campaignId.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:4000/api/v1" },
+    { "key": "mentorEmail", "value": "mentor@brightmango.in" },
+    { "key": "studentEmail", "value": "student1@example.com" },
+    { "key": "otp", "value": "" },
+    { "key": "courseId", "value": "" },
+    { "key": "courseSlug", "value": "" },
+    { "key": "chapterId", "value": "" },
+    { "key": "lessonId", "value": "" },
+    { "key": "couponId", "value": "" },
+    { "key": "enrollmentId", "value": "" },
+    { "key": "sessionId", "value": "" },
+    { "key": "campaignId", "value": "" },
+    { "key": "loginEmail", "value": "mentor@brightmango.in" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Run in order. Set {{loginEmail}} to the mentor or a student email before running the 3-step login.",
+      "item": [
+        {
+          "name": "1. Request OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/otp/request",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{loginEmail}}\"\n}" }
+          }
+        },
+        {
+          "name": "2. Get Dev OTP (dev only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res?.data?.otp) {",
+                  "  pm.collectionVariables.set('otp', res.data.otp);",
+                  "  console.log('Saved OTP:', res.data.otp);",
+                  "}",
+                  "pm.test('got otp', () => pm.expect(res?.data?.otp).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/auth/dev/otp?email={{loginEmail}}" }
+        },
+        {
+          "name": "3. Verify OTP (sets cookie)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('logged in', () => pm.expect(pm.response.code).to.eql(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/otp/verify",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{loginEmail}}\",\n  \"otp\": \"{{otp}}\",\n  \"deviceName\": \"Postman\",\n  \"rememberDevice\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/otp/resend",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{loginEmail}}\"\n}" }
+          }
+        },
+        {
+          "name": "Me",
+          "request": { "method": "GET", "url": "{{baseUrl}}/auth/me" }
+        },
+        {
+          "name": "List my sessions",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const s = pm.response.json()?.data?.sessions || [];",
+                  "if (s[0]) pm.collectionVariables.set('sessionId', s[0].sessionId);"
+                ]
+              }
+            }
+          ],
+          "request": { "method": "GET", "url": "{{baseUrl}}/auth/sessions" }
+        },
+        {
+          "name": "Revoke a session",
+          "request": { "method": "DELETE", "url": "{{baseUrl}}/auth/sessions/{{sessionId}}" }
+        },
+        {
+          "name": "Heartbeat",
+          "request": { "method": "POST", "url": "{{baseUrl}}/auth/session/heartbeat" }
+        },
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "url": "{{baseUrl}}/auth/logout" }
+        },
+        {
+          "name": "Logout all",
+          "request": { "method": "POST", "url": "{{baseUrl}}/auth/logout-all" }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        { "name": "Me", "request": { "method": "GET", "url": "{{baseUrl}}/users/me" } },
+        {
+          "name": "Update me",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users/me",
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Name\"\n}" }
+          }
+        },
+        { "name": "List students (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/users/students?page=1&limit=20" } },
+        { "name": "Get student (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/users/students/STUDENT_ID" } },
+        { "name": "Student enrollments (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/users/students/STUDENT_ID/enrollments" } },
+        { "name": "Ban student (mentor)", "request": { "method": "POST", "url": "{{baseUrl}}/users/students/STUDENT_ID/ban" } },
+        { "name": "Unban student (mentor)", "request": { "method": "POST", "url": "{{baseUrl}}/users/students/STUDENT_ID/unban" } },
+        {
+          "name": "Blacklist email (mentor)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/users/blacklist",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"spam@example.com\",\n  \"reason\": \"abuse\"\n}" }
+          }
+        },
+        { "name": "Remove from blacklist (mentor)", "request": { "method": "DELETE", "url": "{{baseUrl}}/users/blacklist/spam@example.com" } }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        {
+          "name": "Create course (mentor)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const c = pm.response.json()?.data?.course;",
+                  "if (c?._id) pm.collectionVariables.set('courseId', c._id);",
+                  "if (c?.slug) pm.collectionVariables.set('courseSlug', c.slug);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/courses",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Mastering Node.js\",\n  \"price\": 49900,\n  \"shortDescription\": \"From zero to production\",\n  \"description\": \"Full course\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update course (mentor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/courses/{{courseId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"price\": 39900\n}" }
+          }
+        },
+        { "name": "Publish course (mentor)", "request": { "method": "POST", "url": "{{baseUrl}}/courses/{{courseId}}/publish" } },
+        { "name": "List published (public)", "request": { "method": "GET", "url": "{{baseUrl}}/courses?page=1&limit=20" } },
+        { "name": "Get by slug (public)", "request": { "method": "GET", "url": "{{baseUrl}}/courses/{{courseSlug}}" } },
+        { "name": "My courses (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/courses/admin/mine" } },
+        { "name": "Get my course (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/courses/admin/{{courseId}}" } },
+        { "name": "Delete: request OTP (mentor)", "request": { "method": "POST", "url": "{{baseUrl}}/courses/{{courseId}}/delete/request" } },
+        {
+          "name": "Delete: confirm (mentor)",
+          "description": "First call GET /auth/dev/otp?email={{mentorEmail}} and set {{otp}}.",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/courses/{{courseId}}/delete/confirm",
+            "body": { "mode": "raw", "raw": "{\n  \"otp\": \"{{otp}}\"\n}" }
+          }
+        },
+        { "name": "Delete: cancel (mentor)", "request": { "method": "POST", "url": "{{baseUrl}}/courses/{{courseId}}/delete/cancel" } }
+      ]
+    },
+    {
+      "name": "Chapters",
+      "item": [
+        {
+          "name": "Create chapter (mentor)",
+          "event": [
+            { "listen": "test", "script": { "exec": [ "const c = pm.response.json()?.data?.chapter; if (c?._id) pm.collectionVariables.set('chapterId', c._id);" ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/courses/{{courseId}}/chapters",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Getting Started\",\n  \"description\": \"Intro chapter\"\n}" }
+          }
+        },
+        { "name": "List chapters", "request": { "method": "GET", "url": "{{baseUrl}}/courses/{{courseId}}/chapters" } },
+        {
+          "name": "Update chapter (mentor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/chapters/{{chapterId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Getting Started (v2)\"\n}" }
+          }
+        },
+        {
+          "name": "Reorder chapters (mentor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/courses/{{courseId}}/chapters/reorder",
+            "body": { "mode": "raw", "raw": "{\n  \"orderedIds\": [\"{{chapterId}}\"]\n}" }
+          }
+        },
+        { "name": "Delete chapter (mentor)", "request": { "method": "DELETE", "url": "{{baseUrl}}/chapters/{{chapterId}}" } }
+      ]
+    },
+    {
+      "name": "Lessons",
+      "item": [
+        {
+          "name": "Create lesson (mentor)",
+          "event": [
+            { "listen": "test", "script": { "exec": [ "const l = pm.response.json()?.data?.lesson; if (l?._id) pm.collectionVariables.set('lessonId', l._id);" ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/chapters/{{chapterId}}/lessons",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Welcome\",\n  \"description\": \"First lesson\",\n  \"isPreview\": true\n}" }
+          }
+        },
+        {
+          "name": "Update lesson (mentor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/lessons/{{lessonId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"isPreview\": false\n}" }
+          }
+        },
+        { "name": "Video upload URL (mentor) — needs Stream", "request": { "method": "POST", "url": "{{baseUrl}}/lessons/{{lessonId}}/video/upload-url" } },
+        {
+          "name": "Reorder lessons (mentor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/chapters/{{chapterId}}/lessons/reorder",
+            "body": { "mode": "raw", "raw": "{\n  \"orderedIds\": [\"{{lessonId}}\"]\n}" }
+          }
+        },
+        { "name": "Playback (student/enrolled or preview)", "request": { "method": "GET", "url": "{{baseUrl}}/lessons/{{lessonId}}/playback" } },
+        { "name": "Delete lesson (mentor)", "request": { "method": "DELETE", "url": "{{baseUrl}}/lessons/{{lessonId}}" } }
+      ]
+    },
+    {
+      "name": "Resources",
+      "item": [
+        {
+          "name": "Upload URL (mentor) — needs R2",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/lessons/{{lessonId}}/resources/upload-url",
+            "body": { "mode": "raw", "raw": "{\n  \"fileName\": \"slides.pdf\",\n  \"contentType\": \"application/pdf\"\n}" }
+          }
+        },
+        {
+          "name": "Create resource metadata (mentor)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/lessons/{{lessonId}}/resources",
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Slides\",\n  \"fileKey\": \"resources/.../slides.pdf\",\n  \"fileName\": \"slides.pdf\",\n  \"fileSize\": 12345\n}" }
+          }
+        },
+        { "name": "List resources (enrolled)", "request": { "method": "GET", "url": "{{baseUrl}}/lessons/{{lessonId}}/resources" } },
+        { "name": "Download (enrolled) — needs R2", "request": { "method": "GET", "url": "{{baseUrl}}/resources/RESOURCE_ID/download" } },
+        { "name": "Delete resource (mentor)", "request": { "method": "DELETE", "url": "{{baseUrl}}/resources/RESOURCE_ID" } }
+      ]
+    },
+    {
+      "name": "Enrollments",
+      "item": [
+        {
+          "name": "Manual enroll (mentor)",
+          "event": [
+            { "listen": "test", "script": { "exec": [ "const e = pm.response.json()?.data?.enrollment; if (e?._id) pm.collectionVariables.set('enrollmentId', e._id);" ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/enrollments/manual",
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{studentEmail}}\",\n  \"courseId\": \"{{courseId}}\"\n}" }
+          }
+        },
+        { "name": "My enrollments (student)", "request": { "method": "GET", "url": "{{baseUrl}}/enrollments/me" } },
+        { "name": "My enrollment for course (student)", "request": { "method": "GET", "url": "{{baseUrl}}/enrollments/me/{{courseId}}" } },
+        { "name": "Revoke (mentor)", "request": { "method": "DELETE", "url": "{{baseUrl}}/enrollments/{{enrollmentId}}" } }
+      ]
+    },
+    {
+      "name": "Coupons",
+      "item": [
+        {
+          "name": "Create coupon (mentor)",
+          "event": [
+            { "listen": "test", "script": { "exec": [ "const c = pm.response.json()?.data?.coupon; if (c?._id) pm.collectionVariables.set('couponId', c._id);" ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/coupons",
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"code\": \"LAUNCH50\",\n  \"discountType\": \"percentage\",\n  \"value\": 50,\n  \"usageLimit\": 100\n}" }
+          }
+        },
+        { "name": "List coupons (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/coupons" } },
+        {
+          "name": "Update coupon (mentor)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/coupons/{{couponId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"isActive\": false\n}" }
+          }
+        },
+        {
+          "name": "Validate coupon (student)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/coupons/validate",
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"LAUNCH50\",\n  \"courseId\": \"{{courseId}}\"\n}" }
+          }
+        },
+        { "name": "Delete coupon (mentor)", "request": { "method": "DELETE", "url": "{{baseUrl}}/coupons/{{couponId}}" } }
+      ]
+    },
+    {
+      "name": "Payments (needs Razorpay)",
+      "item": [
+        {
+          "name": "Create order (student)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/orders",
+            "body": { "mode": "raw", "raw": "{\n  \"courseId\": \"{{courseId}}\",\n  \"couponCode\": \"LAUNCH50\"\n}" }
+          }
+        },
+        {
+          "name": "Verify payment (student)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/payments/verify",
+            "body": { "mode": "raw", "raw": "{\n  \"razorpayOrderId\": \"order_xxx\",\n  \"razorpayPaymentId\": \"pay_xxx\",\n  \"razorpaySignature\": \"sig_xxx\"\n}" }
+          }
+        },
+        { "name": "My orders (student)", "request": { "method": "GET", "url": "{{baseUrl}}/orders/me" } }
+      ]
+    },
+    {
+      "name": "Progress",
+      "item": [
+        {
+          "name": "Save progress (student, enrolled)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/progress/lessons/{{lessonId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"watchedSeconds\": 120\n}" }
+          }
+        },
+        { "name": "Course progress (student)", "request": { "method": "GET", "url": "{{baseUrl}}/progress/courses/{{courseId}}" } },
+        { "name": "Recently watched (student)", "request": { "method": "GET", "url": "{{baseUrl}}/progress/recent" } }
+      ]
+    },
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Post comment (student, enrolled)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/comments/lessons/{{lessonId}}",
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Great lesson!\"\n}" }
+          }
+        },
+        { "name": "List comments (enrolled)", "request": { "method": "GET", "url": "{{baseUrl}}/comments/lessons/{{lessonId}}" } },
+        {
+          "name": "Edit own comment",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/comments/COMMENT_ID",
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Edited comment\"\n}" }
+          }
+        },
+        {
+          "name": "Mentor reply",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/comments/COMMENT_ID/reply",
+            "body": { "mode": "raw", "raw": "{\n  \"content\": \"Thanks!\"\n}" }
+          }
+        },
+        { "name": "Recent comments (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/comments/recent" } },
+        { "name": "Delete comment", "request": { "method": "DELETE", "url": "{{baseUrl}}/comments/COMMENT_ID" } }
+      ]
+    },
+    {
+      "name": "Campaigns",
+      "item": [
+        {
+          "name": "Create campaign (mentor)",
+          "event": [
+            { "listen": "test", "script": { "exec": [ "const c = pm.response.json()?.data?.campaign; if (c?._id) pm.collectionVariables.set('campaignId', c._id);" ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/campaigns",
+            "body": { "mode": "raw", "raw": "{\n  \"subject\": \"Hi {{name}}\",\n  \"body\": \"<p>Hello {{name}}, new content is live!</p>\"\n}" }
+          }
+        },
+        { "name": "List campaigns (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/campaigns" } },
+        { "name": "Get campaign (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/campaigns/{{campaignId}}" } }
+      ]
+    },
+    {
+      "name": "Audit",
+      "item": [
+        { "name": "List audit logs (mentor)", "request": { "method": "GET", "url": "{{baseUrl}}/audit-logs?page=1&limit=20" } }
+      ]
+    }
+  ]
+}

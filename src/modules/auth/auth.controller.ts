@@ -74,6 +74,17 @@ export async function trustedLogin(req: Request, res: Response): Promise<Respons
   return sendAuthResult(res, result);
 }
 
+// ── Dev only ──────────────────────────────────────────────────────────────────────
+
+/** Returns the last OTP for an email so local testing doesn't need real email. */
+export async function devOtp(req: Request, res: Response): Promise<Response> {
+  const email = typeof req.query.email === 'string' ? req.query.email : '';
+  if (!email) throw ApiError.badRequest(ErrorCode.VALIDATION_ERROR, 'email query param required');
+  const otp = await authService.getDevOtp(email);
+  if (!otp) throw ApiError.notFound('No OTP found — request one first');
+  return ApiResponse.ok(res, 'Dev OTP', { otp });
+}
+
 // ── Protected (self) ──────────────────────────────────────────────────────────────
 
 export async function me(req: Request, res: Response): Promise<Response> {

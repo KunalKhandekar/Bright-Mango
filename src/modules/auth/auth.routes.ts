@@ -6,6 +6,7 @@ import { authorize } from '../../common/middlewares/authorize.js';
 import { rateLimiter } from '../../common/middlewares/rateLimiter.js';
 import { PERMISSIONS } from '../../common/constants/permissions.js';
 import { normalizeEmail } from '../../common/utils/otp.util.js';
+import { env } from '../../config/env.js';
 import * as ctrl from './auth.controller.js';
 import {
   requestOtpValidators,
@@ -40,6 +41,11 @@ router.post('/otp/request', otpEmailLimiter, validate(requestOtpValidators), asy
 router.post('/otp/resend', otpEmailLimiter, validate(resendOtpValidators), asyncHandler(ctrl.resendOtp));
 router.post('/otp/verify', verifyLimiter, validate(verifyOtpValidators), asyncHandler(ctrl.verifyOtp));
 router.post('/login/trusted', validate(trustedLoginValidators), asyncHandler(ctrl.trustedLogin));
+
+// ── Dev only — never mounted in production ─────────────────────────────────────
+if (env.nodeEnv !== 'production') {
+  router.get('/dev/otp', asyncHandler(ctrl.devOtp));
+}
 
 // ── Protected (self) ──────────────────────────────────────────────────────────────
 router.get('/me', authenticate, asyncHandler(ctrl.me));
