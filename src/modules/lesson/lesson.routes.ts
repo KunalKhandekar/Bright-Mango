@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { asyncHandler } from '../../common/middlewares/asyncHandler.js';
 import { validate } from '../../common/middlewares/validate.js';
-import { authenticate } from '../../common/middlewares/authenticate.js';
+import { authenticate, authenticateOptional } from '../../common/middlewares/authenticate.js';
 import { authorize } from '../../common/middlewares/authorize.js';
 import { PERMISSIONS } from '../../common/constants/permissions.js';
 import { requireEnrollment } from '../enrollment/enrollment.access.js';
@@ -39,6 +39,9 @@ router.patch('/chapters/:chapterId/lessons/reorder', ...manage, validate(reorder
 router.post('/lessons/:id/video/upload-url', ...manage, validate(lessonIdParam), asyncHandler(ctrl.uploadUrl));
 router.patch('/lessons/:id', ...manage, validate(updateLessonValidators), asyncHandler(ctrl.update));
 router.delete('/lessons/:id', ...manage, validate(lessonIdParam), asyncHandler(ctrl.remove));
+
+// Course curriculum (public for published courses; owner-only for drafts)
+router.get('/courses/:courseId/lessons', authenticateOptional, asyncHandler(ctrl.listByCourse));
 
 // Student playback (enrollment-gated, preview-exempt)
 router.get('/lessons/:id/playback', authenticate, validate(lessonIdParam), playbackGate, asyncHandler(ctrl.playback));

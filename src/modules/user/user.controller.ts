@@ -51,6 +51,11 @@ export async function blacklist(req: Request, res: Response): Promise<Response> 
   return ApiResponse.ok(res, 'Email blacklisted');
 }
 
+export async function listBlacklist(_req: Request, res: Response): Promise<Response> {
+  const entries = await admin.listBlacklist();
+  return ApiResponse.ok(res, 'Blacklisted emails', { entries });
+}
+
 export async function unblacklist(req: Request, res: Response): Promise<Response> {
   await admin.removeFromBlacklist(req.auth!.userId, req.params.email);
   return ApiResponse.ok(res, 'Email removed from blacklist');

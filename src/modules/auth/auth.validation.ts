@@ -20,9 +20,13 @@ export const verifyOtpValidators = [
     .withMessage('OTP must be 6 digits'),
   body('deviceName').optional().isString().trim().isLength({ max: 120 }),
   body('rememberDevice').optional().isBoolean().toBoolean(),
+  body('revokeSessionId').optional().isString().isLength({ min: 16, max: 128 }),
 ];
 
-export const trustedLoginValidators = [email()];
+export const trustedLoginValidators = [
+  email(),
+  body('revokeSessionId').optional().isString().isLength({ min: 16, max: 128 }),
+];
 
 export const sessionIdParamValidators = [
   param('sessionId').isString().isLength({ min: 16, max: 128 }).withMessage('Invalid session id'),

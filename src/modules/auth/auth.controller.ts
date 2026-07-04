@@ -57,6 +57,8 @@ export async function verifyOtp(req: Request, res: Response): Promise<Response> 
   const result = await authService.verifyOtp(req.body.email, req.body.otp, {
     ...requestContext(req),
     rememberDevice: req.body.rememberDevice === true,
+    revokeSessionId:
+      typeof req.body.revokeSessionId === 'string' ? req.body.revokeSessionId : undefined,
   });
   return sendAuthResult(res, result);
 }
@@ -66,11 +68,11 @@ export async function trustedLogin(req: Request, res: Response): Promise<Respons
   if (!deviceId) {
     throw ApiError.unauthorized('No trusted device', ErrorCode.TRUSTED_DEVICE_INVALID);
   }
-  const result = await authService.loginWithTrustedDevice(
-    req.body.email,
-    deviceId,
-    requestContext(req),
-  );
+  const result = await authService.loginWithTrustedDevice(req.body.email, deviceId, {
+    ...requestContext(req),
+    revokeSessionId:
+      typeof req.body.revokeSessionId === 'string' ? req.body.revokeSessionId : undefined,
+  });
   return sendAuthResult(res, result);
 }
 

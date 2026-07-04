@@ -1,7 +1,7 @@
 import mongoose, { Types } from 'mongoose';
 import { Lesson, LessonDoc } from './lesson.model.js';
 import { Chapter } from '../chapter/chapter.model.js';
-import { assertCourseOwner } from '../course/course.service.js';
+import { assertCourseOwner, getCourseOrThrow } from '../course/course.service.js';
 import * as stream from '../../integrations/stream.service.js';
 import { enqueueVideoStatusPoll } from '../../jobs/queues.js';
 import { ApiError } from '../../common/http/ApiError.js';
@@ -97,6 +97,24 @@ export async function getLessonOrThrow(lessonId: string): Promise<LessonDoc> {
   const lesson = await Lesson.findById(lessonId).lean<LessonDoc>();
   if (!lesson) throw ApiError.notFound('Lesson not found');
   return lesson;
+}
+
+/**
+ * Course curriculum listing (safe fields only — no video uids/playback ids).
+ * Public for published courses; drafts are visible only to the owning mentor.
+ */
+export async function listLessonsByCourse(
+  courseId: string,
+  requesterId?: string,
+): Promise<Partial<LessonDoc>[]> {
+  const course = await getCourseOrThrow(courseId);
+  if (course.status !== 'published' && course.mentorId.toString() !== requesterId) {
+    throw ApiError.notFound('Course not found');
+  }
+  return Lesson.find({ courseId })
+    .sort({ chapterId: 1, order: 1 })
+    .select('-videoUid -videoPlaybackId')
+    .lean<Partial<LessonDoc>[]>();
 }
 
 /** Signed, short-lived playback token. Caller must already be enrollment-gated. */

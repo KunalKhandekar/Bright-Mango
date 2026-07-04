@@ -98,3 +98,7 @@ export async function removeFromBlacklist(mentorId: string, rawEmail: string): P
   await EmailBlacklist.deleteOne({ email });
   auditLog({ userId: mentorId, action: 'EMAIL_UNBLACKLISTED', entityType: 'EmailBlacklist', metadata: { email } });
 }
+
+export async function listBlacklist() {
+  return EmailBlacklist.find({}).sort({ createdAt: -1 }).lean();
+}

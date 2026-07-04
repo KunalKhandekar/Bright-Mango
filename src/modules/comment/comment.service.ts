@@ -17,11 +17,13 @@ export async function listForLesson(
   pagination: PaginationParams,
 ): Promise<{ items: ThreadedComment[]; total: number }> {
   const baseQuery = { lessonId, parentCommentId: null };
+  const author = { path: 'userId', select: 'name avatar role' };
   const [tops, total] = await Promise.all([
     Comment.find(baseQuery)
       .sort({ createdAt: -1 })
       .skip(pagination.skip)
       .limit(pagination.limit)
+      .populate(author)
       .lean<CommentDoc[]>(),
     Comment.countDocuments(baseQuery),
   ]);
@@ -29,6 +31,7 @@ export async function listForLesson(
   const topIds = tops.map((c) => c._id);
   const replies = await Comment.find({ parentCommentId: { $in: topIds } })
     .sort({ createdAt: 1 })
+    .populate(author)
     .lean<CommentDoc[]>();
 
   const byParent = new Map<string, CommentDoc[]>();

@@ -21,6 +21,8 @@ import {
   getActiveSessions,
   markTrustedDevice,
   isTrustedDevice,
+  revokeSession,
+  sessionBelongsToUser,
 } from './session.service.js';
 import { PublicUser, VerifyOtpResult } from './auth.types.js';
 import type { UserDoc } from '../user/user.model.js';
@@ -112,7 +114,7 @@ export async function resendOtp(email: string, ctx: RequestContext): Promise<{ c
 export async function verifyOtp(
   rawEmail: string,
   otp: string,
-  ctx: RequestContext & { rememberDevice?: boolean },
+  ctx: RequestContext & { rememberDevice?: boolean; revokeSessionId?: string },
 ): Promise<VerifyOtpResult> {
   const email = normalizeEmail(rawEmail);
   await assertEmailAllowed(email);
@@ -125,10 +127,7 @@ export async function verifyOtp(
 
   const record = JSON.parse(raw) as StoredOtp;
 
-  if (verifyOtpHash(otp, record.otpHash)) {
-    // Correct — consume the OTP immediately to prevent replay.
-    await redis.del(otpKey);
-  } else {
+  if (!verifyOtpHash(otp, record.otpHash)) {
     const attempts = record.attempts + 1;
     if (attempts >= env.otpMaxAttempts) {
       await redis.del(otpKey);
@@ -153,17 +152,28 @@ export async function verifyOtp(
     throw ApiError.forbidden('This account has been suspended', ErrorCode.ACCOUNT_BANNED);
   }
 
-  // Session limit (students only).
-  if (await isSessionLimitReached(user._id.toString(), user.role)) {
-    const activeSessions = await getActiveSessions(user._id.toString());
+  // After a prior SESSION_LIMIT_EXCEEDED response the client may retry with a
+  // session the user chose to sign out; revoke it (ownership-checked) first.
+  const userId = user._id.toString();
+  if (ctx.revokeSessionId && (await sessionBelongsToUser(ctx.revokeSessionId, userId))) {
+    await revokeSession(ctx.revokeSessionId, userId);
+  }
+
+  // Session limit (students only). The OTP is intentionally NOT consumed yet so
+  // the same code can be retried with `revokeSessionId` (still TTL/attempt-bound).
+  if (await isSessionLimitReached(userId, user.role)) {
+    const activeSessions = await getActiveSessions(userId);
     return { kind: 'session_limit', activeSessions };
   }
+
+  // Login succeeds — consume the OTP now to prevent replay.
+  await redis.del(otpKey);
 
   const session = await createSession(user._id, user.role, ctx);
   await markLoggedIn(user._id);
 
   if (ctx.rememberDevice) {
-    await markTrustedDevice(user._id.toString(), session.deviceId);
+    await markTrustedDevice(userId, session.deviceId);
   }
 
   return { kind: 'session', user: toPublicUser(user), session };
@@ -179,7 +189,7 @@ export async function verifyOtp(
 export async function loginWithTrustedDevice(
   rawEmail: string,
   deviceId: string,
-  ctx: RequestContext,
+  ctx: RequestContext & { revokeSessionId?: string },
 ): Promise<VerifyOtpResult> {
   const email = normalizeEmail(rawEmail);
   await assertEmailAllowed(email);
@@ -197,8 +207,14 @@ export async function loginWithTrustedDevice(
     throw ApiError.unauthorized('Device not trusted, OTP required', ErrorCode.TRUSTED_DEVICE_INVALID);
   }
 
-  if (await isSessionLimitReached(user._id.toString(), user.role)) {
-    const activeSessions = await getActiveSessions(user._id.toString());
+  // Same retry contract as verifyOtp: revoke a user-chosen session after a 409.
+  const userId = user._id.toString();
+  if (ctx.revokeSessionId && (await sessionBelongsToUser(ctx.revokeSessionId, userId))) {
+    await revokeSession(ctx.revokeSessionId, userId);
+  }
+
+  if (await isSessionLimitReached(userId, user.role)) {
+    const activeSessions = await getActiveSessions(userId);
     return { kind: 'session_limit', activeSessions };
   }
 

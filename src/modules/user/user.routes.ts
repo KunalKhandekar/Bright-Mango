@@ -26,6 +26,7 @@ router.post('/students/:id/ban', authenticate, authorize(PERMISSIONS.STUDENT_BAN
 router.post('/students/:id/unban', authenticate, authorize(PERMISSIONS.STUDENT_BAN), validate(studentIdParam), asyncHandler(ctrl.unban));
 
 // Mentor — email blacklist
+router.get('/blacklist', authenticate, authorize(PERMISSIONS.EMAIL_BLACKLIST), asyncHandler(ctrl.listBlacklist));
 router.post('/blacklist', authenticate, authorize(PERMISSIONS.EMAIL_BLACKLIST), validate(blacklistValidators), asyncHandler(ctrl.blacklist));
 router.delete('/blacklist/:email', authenticate, authorize(PERMISSIONS.EMAIL_BLACKLIST), validate(emailParam), asyncHandler(ctrl.unblacklist));
 

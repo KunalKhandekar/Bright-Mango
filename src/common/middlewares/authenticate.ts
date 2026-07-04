@@ -55,3 +55,20 @@ export async function authenticate(
     next(err);
   }
 }
+
+/**
+ * Like `authenticate`, but anonymous requests continue with `req.auth` unset
+ * (for public endpoints whose response widens for the owner, e.g. lesson lists).
+ */
+export async function authenticateOptional(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  if (!getSessionId(req)) return next();
+  return authenticate(req, res, (err?: unknown) => {
+    // Invalid/expired cookie on a public route is not an error — stay anonymous.
+    if (err instanceof ApiError && err.statusCode === 401) return next();
+    next(err as Error | undefined);
+  });
+}

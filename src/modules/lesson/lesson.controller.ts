@@ -31,3 +31,8 @@ export async function playback(req: Request, res: Response): Promise<Response> {
   const data = await lessonService.getPlayback(req.params.id);
   return ApiResponse.ok(res, 'Playback token', data);
 }
+
+export async function listByCourse(req: Request, res: Response): Promise<Response> {
+  const lessons = await lessonService.listLessonsByCourse(req.params.courseId, req.auth?.userId);
+  return ApiResponse.ok(res, 'Lessons', { lessons });
+}
