@@ -61,12 +61,15 @@ export const env = {
   seedMentorEmail: optional('SEED_MENTOR_EMAIL', 'mentor@brightmango.in'),
   seedMentorName: optional('SEED_MENTOR_NAME', 'BrightMango Mentor'),
 
-  smtp: {
-    host: optional('SMTP_HOST', ''),
-    port: int('SMTP_PORT', 587),
-    user: optional('SMTP_USER', ''),
-    pass: optional('SMTP_PASS', ''),
-    from: optional('MAIL_FROM', 'BrightMango <no-reply@brightmango.in>'),
+  mail: {
+    from: optional(
+      'MAIL_FROM',
+      'BrightMango <no-reply@brightmango.in>',
+    ),
+  },
+
+  resend: {
+    apiKey: optional('RESEND_API_KEY', ''),
   },
 
   razorpay: {

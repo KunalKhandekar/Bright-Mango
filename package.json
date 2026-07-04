@@ -29,10 +29,10 @@
     "helmet": "^8.0.0",
     "ioredis": "5.10.1",
     "mongoose": "^8.9.5",
-    "nodemailer": "^6.9.16",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
-    "razorpay": "^2.9.5"
+    "razorpay": "^2.9.5",
+    "resend": "^6.17.1"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.8",
