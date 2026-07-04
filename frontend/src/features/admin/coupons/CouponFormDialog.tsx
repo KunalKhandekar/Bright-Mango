@@ -33,6 +33,9 @@ interface CouponFormDialogProps {
   coupon?: Coupon | null
 }
 
+/** Select sentinel for "valid on every course" (courseId omitted in the payload). */
+const ALL_COURSES = '__all__'
+
 export function CouponFormDialog({ open, onOpenChange, coupon }: CouponFormDialogProps) {
   const queryClient = useQueryClient()
   const [courseId, setCourseId] = useState('')
@@ -51,7 +54,13 @@ export function CouponFormDialog({ open, onOpenChange, coupon }: CouponFormDialo
   useEffect(() => {
     if (!open) return
     if (coupon) {
-      setCourseId(typeof coupon.courseId === 'object' ? coupon.courseId._id : coupon.courseId)
+      setCourseId(
+        coupon.courseId === null
+          ? ALL_COURSES
+          : typeof coupon.courseId === 'object'
+            ? coupon.courseId._id
+            : coupon.courseId,
+      )
       setCode(coupon.code)
       setDiscountType(coupon.discountType)
       setValue(
@@ -83,7 +92,11 @@ export function CouponFormDialog({ open, onOpenChange, coupon }: CouponFormDialo
       }
       return coupon
         ? updateCoupon(coupon._id, shared)
-        : createCoupon({ ...shared, courseId, code: code.trim().toUpperCase() })
+        : createCoupon({
+            ...shared,
+            courseId: courseId === ALL_COURSES ? undefined : courseId,
+            code: code.trim().toUpperCase(),
+          })
     },
     onSuccess: () => {
       toast.success(coupon ? 'Coupon updated' : 'Coupon created')
@@ -121,6 +134,7 @@ export function CouponFormDialog({ open, onOpenChange, coupon }: CouponFormDialo
                     />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value={ALL_COURSES}>All courses</SelectItem>
                     {(coursesQuery.data?.courses ?? []).map((course) => (
                       <SelectItem key={course._id} value={course._id}>
                         {course.title}

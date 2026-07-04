@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ApiResponse } from '../../common/http/ApiResponse.js';
 import { getPagination, buildPaginationMeta } from '../../common/utils/pagination.util.js';
-import { findById } from './user.service.js';
+import { createAvatarUploadUrl, findById } from './user.service.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import * as admin from './user.admin.service.js';
 
@@ -9,6 +9,14 @@ export async function me(req: Request, res: Response): Promise<Response> {
   const user = await findById(req.auth!.userId);
   if (!user) throw ApiError.unauthorized();
   return ApiResponse.ok(res, 'Profile', { user });
+}
+
+export async function avatarUploadUrl(req: Request, res: Response): Promise<Response> {
+  const data = await createAvatarUploadUrl(req.auth!.userId, {
+    fileName: req.body.fileName,
+    contentType: req.body.contentType,
+  });
+  return ApiResponse.ok(res, 'Avatar upload URL issued', data);
 }
 
 export async function updateMe(req: Request, res: Response): Promise<Response> {

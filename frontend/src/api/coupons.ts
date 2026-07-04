@@ -14,7 +14,8 @@ export function listCoupons() {
 }
 
 export interface CouponInput {
-  courseId: string
+  /** Omit for an all-courses coupon */
+  courseId?: string
   code: string
   discountType: 'fixed' | 'percentage'
   value: number

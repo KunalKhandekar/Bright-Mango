@@ -112,9 +112,57 @@ export function StudentLayout() {
                   <Menu className="size-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="w-64">
+              <SheetContent side="right" className="flex w-72 flex-col">
                 <SheetTitle className="sr-only">Navigation</SheetTitle>
-                <nav className="mt-8 flex flex-col gap-4 px-4">{authedLinks}</nav>
+                {status === 'authed' && user && (
+                  <div className="flex items-center gap-3 border-b px-4 pt-8 pb-4">
+                    <UserAvatar name={user.name} email={user.email} avatar={user.avatar} className="size-10" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{user.name || 'Learner'}</p>
+                      <p className="text-muted-foreground truncate text-xs">{user.email}</p>
+                    </div>
+                  </div>
+                )}
+                <nav className="mt-4 flex flex-col gap-4 px-4">
+                  {authedLinks}
+                  {status === 'authed' && (
+                    <>
+                      <NavLink to="/orders" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+                        Orders
+                      </NavLink>
+                      <NavLink to="/settings/profile" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+                        Profile
+                      </NavLink>
+                      <NavLink to="/settings/sessions" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+                        Devices
+                      </NavLink>
+                      {user?.role === 'mentor' && (
+                        <NavLink to="/admin" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+                          Admin panel
+                        </NavLink>
+                      )}
+                    </>
+                  )}
+                  {status === 'guest' && (
+                    <NavLink to="/login" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+                      Sign in
+                    </NavLink>
+                  )}
+                </nav>
+                {status === 'authed' && (
+                  <div className="mt-auto border-t p-4">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        void handleLogout()
+                      }}
+                    >
+                      <LogOut className="size-4" /> Sign out
+                    </Button>
+                  </div>
+                )}
               </SheetContent>
             </Sheet>
           </div>

@@ -9,6 +9,12 @@ export function updateProfile(input: { name?: string; avatar?: string }) {
   return unwrap<{ user: User }>(api.patch('/users/me', input))
 }
 
+export function createAvatarUploadUrl(input: { fileName: string; contentType: string }) {
+  return unwrap<{ uploadUrl: string; fileKey: string; publicUrl: string }>(
+    api.post('/users/me/avatar/upload-url', input),
+  )
+}
+
 // ── Mentor ──────────────────────────────────────────────────────────────────
 
 export function listStudents(params: { search?: string; page?: number; limit?: number } = {}) {

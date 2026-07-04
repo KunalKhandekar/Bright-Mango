@@ -5,8 +5,10 @@ import { authenticate } from '../../common/middlewares/authenticate.js';
 import { authorize } from '../../common/middlewares/authorize.js';
 import { PERMISSIONS } from '../../common/constants/permissions.js';
 import * as ctrl from './user.controller.js';
+import { rateLimiter } from '../../common/middlewares/rateLimiter.js';
 import {
   updateProfileValidators,
+  avatarUploadValidators,
   studentIdParam,
   blacklistValidators,
   emailParam,
@@ -14,9 +16,24 @@ import {
 
 const router = Router();
 
+const avatarUploadLimiter = rateLimiter({
+  prefix: 'avatar-upload',
+  windowSeconds: 60 * 60,
+  max: 10,
+  keyBy: (req) => req.auth?.userId ?? req.ip ?? 'unknown',
+  message: 'Too many photo uploads. Try again later.',
+});
+
 // Self
 router.get('/me', authenticate, asyncHandler(ctrl.me));
 router.patch('/me', authenticate, validate(updateProfileValidators), asyncHandler(ctrl.updateMe));
+router.post(
+  '/me/avatar/upload-url',
+  authenticate,
+  avatarUploadLimiter,
+  validate(avatarUploadValidators),
+  asyncHandler(ctrl.avatarUploadUrl),
+);
 
 // Mentor — student management
 router.get('/students', authenticate, authorize(PERMISSIONS.STUDENT_VIEW_ALL), asyncHandler(ctrl.listStudents));

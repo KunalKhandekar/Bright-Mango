@@ -124,7 +124,8 @@ export interface Order {
 export interface Coupon {
   _id: string
   mentorId: string
-  courseId: string | Pick<Course, '_id' | 'title' | 'slug'>
+  /** null = valid for all courses */
+  courseId: string | Pick<Course, '_id' | 'title' | 'slug'> | null
   code: string
   discountType: 'fixed' | 'percentage'
   /** paise for fixed, percent for percentage */

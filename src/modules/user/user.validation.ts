@@ -5,6 +5,14 @@ export const updateProfileValidators = [
   body('avatar').optional().isString().isURL(),
 ];
 
+export const avatarUploadValidators = [
+  body('fileName').isString().trim().isLength({ min: 1, max: 255 }),
+  body('contentType')
+    .isString()
+    .matches(/^image\/[a-z0-9.+-]+$/i)
+    .withMessage('Profile photos must be an image'),
+];
+
 export const studentIdParam = [param('id').isMongoId()];
 
 export const blacklistValidators = [

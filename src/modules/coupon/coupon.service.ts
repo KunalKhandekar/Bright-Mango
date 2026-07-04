@@ -7,7 +7,8 @@ import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 
 export interface CouponInput {
-  courseId: string;
+  /** Omitted/null = coupon is valid for all of the mentor's courses */
+  courseId?: string | null;
   code: string;
   discountType: 'fixed' | 'percentage';
   value: number;
@@ -16,10 +17,10 @@ export interface CouponInput {
 }
 
 export async function createCoupon(mentorId: string, input: CouponInput): Promise<CouponDoc> {
-  await assertCourseOwner(input.courseId, mentorId);
+  if (input.courseId) await assertCourseOwner(input.courseId, mentorId);
   const coupon = await Coupon.create({
     mentorId,
-    courseId: input.courseId,
+    courseId: input.courseId ?? null,
     code: input.code.toUpperCase().trim(),
     discountType: input.discountType,
     value: input.value,
@@ -57,7 +58,10 @@ export async function deleteCoupon(couponId: string, mentorId: string): Promise<
 }
 
 export async function listCoupons(mentorId: string): Promise<CouponDoc[]> {
-  return Coupon.find({ mentorId }).sort({ createdAt: -1 }).lean<CouponDoc[]>();
+  return Coupon.find({ mentorId })
+    .sort({ createdAt: -1 })
+    .populate('courseId', 'title slug')
+    .lean<CouponDoc[]>();
 }
 
 export interface AppliedCoupon {
@@ -77,7 +81,11 @@ export async function applyCoupon(
   courseId: string,
   price: number,
 ): Promise<AppliedCoupon> {
-  const coupon = await Coupon.findOne({ code: code.toUpperCase().trim(), courseId }).lean<CouponDoc>();
+  const normalized = code.toUpperCase().trim();
+  // Course-specific coupon wins; otherwise fall back to an all-courses coupon.
+  const coupon =
+    (await Coupon.findOne({ code: normalized, courseId }).lean<CouponDoc>()) ??
+    (await Coupon.findOne({ code: normalized, courseId: null }).lean<CouponDoc>());
   if (!coupon || !coupon.isActive) {
     throw ApiError.badRequest(ErrorCode.COUPON_INVALID, 'Invalid coupon code');
   }

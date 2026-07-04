@@ -104,7 +104,13 @@ export function CouponsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="max-w-48 truncate">
-                      {typeof coupon.courseId === 'object' ? coupon.courseId.title : '—'}
+                      {coupon.courseId === null ? (
+                        <Badge variant="secondary">All courses</Badge>
+                      ) : typeof coupon.courseId === 'object' ? (
+                        coupon.courseId.title
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell>
                       {coupon.discountType === 'percentage'

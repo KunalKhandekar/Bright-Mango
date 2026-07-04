@@ -10,6 +10,7 @@ import {
   verifyOtp,
   type VerifyOtpInput,
 } from '@/api/auth'
+import { updateProfile } from '@/api/users'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -25,7 +26,7 @@ import { useCountdown } from '@/hooks/use-countdown'
 import { defaultDeviceName } from '@/features/auth/device-name'
 import { SessionLimitDialog } from '@/features/auth/SessionLimitDialog'
 
-type Step = 'email' | 'otp'
+type Step = 'email' | 'otp' | 'name'
 
 export function LoginPage() {
   const setUser = useAuthStore((s) => s.setUser)
@@ -39,14 +40,50 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const cooldown = useCountdown()
 
+  // First-login name capture: hold the user locally so RedirectIfAuthed
+  // doesn't navigate away before we've asked for their name.
+  const [pendingUser, setPendingUser] = useState<User | null>(null)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+
   // Session-limit recovery state: which call to retry after the user revokes a device.
   const [limitSessions, setLimitSessions] = useState<Session[] | null>(null)
   const [limitSource, setLimitSource] = useState<'otp' | 'trusted'>('otp')
 
   const finishLogin = (user: User) => {
+    if (!user.name) {
+      // The session cookie is already set; delay the store update until
+      // the name step is done so the auth guard doesn't redirect early.
+      setPendingUser(user)
+      setStep('name')
+      return
+    }
     // RedirectIfAuthed navigates to ?next= (or the role default) once status flips.
     setUser(user)
-    toast.success(`Welcome${user.name ? `, ${user.name}` : ''}!`)
+    toast.success(`Welcome, ${user.name}!`)
+  }
+
+  const submitName = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!pendingUser) return
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim()
+    setBusy(true)
+    setError(null)
+    try {
+      const { user: updated } = await updateProfile({ name: fullName })
+      setUser(updated)
+      toast.success(`Welcome, ${firstName.trim()}!`)
+    } catch (err) {
+      setError(errorMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const skipName = () => {
+    if (!pendingUser) return
+    setUser(pendingUser)
+    toast.success('Welcome!')
   }
 
   const handleSessionLimit = (err: unknown, source: 'otp' | 'trusted'): boolean => {
@@ -163,7 +200,56 @@ export function LoginPage() {
         <GraduationCap className="text-primary size-7" />
       </div>
       <Card className="w-full">
-        {step === 'email' ? (
+        {step === 'name' ? (
+          <>
+            <CardHeader className="text-center">
+              <CardTitle className="text-xl">What should we call you?</CardTitle>
+              <CardDescription>
+                Your name appears on comments and helps your mentor know you.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={submitName} className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="first-name">First name</Label>
+                    <Input
+                      id="first-name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      autoComplete="given-name"
+                      maxLength={60}
+                      autoFocus
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="last-name">Last name</Label>
+                    <Input
+                      id="last-name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      autoComplete="family-name"
+                      maxLength={60}
+                    />
+                  </div>
+                </div>
+                {error && <p className="text-destructive text-sm">{error}</p>}
+                <Button type="submit" className="w-full" disabled={busy || !firstName.trim()}>
+                  {busy && <Loader2 className="size-4 animate-spin" />}
+                  Continue
+                </Button>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground mx-auto block text-sm"
+                  onClick={skipName}
+                >
+                  Skip for now
+                </button>
+              </form>
+            </CardContent>
+          </>
+        ) : step === 'email' ? (
           <>
             <CardHeader className="text-center">
               <CardTitle className="text-xl">Welcome to BrightMango</CardTitle>

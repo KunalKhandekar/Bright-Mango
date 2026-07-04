@@ -1,7 +1,8 @@
 import { body, param } from 'express-validator';
 
 export const createCouponValidators = [
-  body('courseId').isMongoId(),
+  // Omit courseId to create an all-courses coupon.
+  body('courseId').optional({ values: 'null' }).isMongoId(),
   body('code').isString().trim().isLength({ min: 3, max: 40 }),
   body('discountType').isIn(['fixed', 'percentage']),
   body('value').isInt({ min: 0 }),

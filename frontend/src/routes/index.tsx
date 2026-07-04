@@ -5,12 +5,11 @@ import { RedirectIfAuthed, RequireAuth, RequireMentor } from '@/routes/guards'
 import { HomePage } from '@/features/catalog/HomePage'
 import { CourseDetailPage } from '@/features/catalog/CourseDetailPage'
 import { LoginPage } from '@/features/auth/LoginPage'
-import { SessionsPage } from '@/features/auth/SessionsPage'
 import { CheckoutPage } from '@/features/checkout/CheckoutPage'
 import { LearnPage } from '@/features/learn/LearnPage'
 import { DashboardPage } from '@/features/dashboard/DashboardPage'
 import { OrdersPage } from '@/features/dashboard/OrdersPage'
-import { ProfilePage } from '@/features/dashboard/ProfilePage'
+import { StudentSettingsPage } from '@/features/dashboard/StudentSettingsPage'
 import { AdminDashboardPage } from '@/features/admin/overview/AdminDashboardPage'
 import { AdminCoursesPage } from '@/features/admin/courses/AdminCoursesPage'
 import { CourseBuilderPage } from '@/features/admin/courses/CourseBuilderPage'
@@ -42,8 +41,8 @@ export const router = createBrowserRouter([
           { path: '/checkout/:slug', element: <CheckoutPage /> },
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/orders', element: <OrdersPage /> },
-          { path: '/settings/profile', element: <ProfilePage /> },
-          { path: '/settings/sessions', element: <SessionsPage /> },
+          { path: '/settings', element: <Navigate to="/settings/profile" replace /> },
+          { path: '/settings/:tab', element: <StudentSettingsPage /> },
         ],
       },
     ],
