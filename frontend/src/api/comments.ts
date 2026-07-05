@@ -1,13 +1,20 @@
 import { api, unwrap } from '@/lib/axios'
-import type { CommentNode, CommentThread } from '@/types/models'
+import type { CommentNode } from '@/types/models'
 
 export function listLessonComments(
   lessonId: string,
   params: { page?: number; limit?: number } = {},
 ) {
-  return unwrap<{ comments: CommentThread[] }>(
+  return unwrap<{ comments: CommentNode[] }>(
     api.get(`/comments/lessons/${lessonId}`, { params }),
   )
+}
+
+export function listCommentReplies(
+  id: string,
+  params: { page?: number; limit?: number } = {},
+) {
+  return unwrap<{ comments: CommentNode[] }>(api.get(`/comments/${id}/replies`, { params }))
 }
 
 export function createComment(

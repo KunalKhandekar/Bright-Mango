@@ -43,6 +43,12 @@ export const env = {
   port: int('PORT', 4000),
   apiPrefix: optional('API_PREFIX', '/api/v1'),
   corsOrigins: list('CORS_ORIGINS'),
+  webAppUrl: optional(
+    'WEB_APP_URL',
+    optional('NODE_ENV', 'development') === 'production'
+      ? 'https://app.brightmango.in'
+      : 'http://localhost:3000',
+  ),
 
   mongoUri: required('MONGODB_URI'),
   redisUrl: required('REDIS_URL'),

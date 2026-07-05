@@ -11,6 +11,12 @@ export async function list(req: Request, res: Response): Promise<Response> {
   return ApiResponse.ok(res, 'Comments', { comments: items }, buildPaginationMeta(total, pagination));
 }
 
+export async function replies(req: Request, res: Response): Promise<Response> {
+  const pagination = getPagination(req);
+  const { items, total } = await commentService.listReplies(req.params.id, pagination);
+  return ApiResponse.ok(res, 'Replies', { comments: items }, buildPaginationMeta(total, pagination));
+}
+
 export async function create(req: Request, res: Response): Promise<Response> {
   const comment = await commentService.createComment(
     req.params.lessonId,

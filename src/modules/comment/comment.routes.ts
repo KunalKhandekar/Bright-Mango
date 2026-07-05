@@ -30,6 +30,7 @@ router.get('/recent', authenticate, authorize(PERMISSIONS.COMMENT_MODERATE), asy
 // Lesson comment threads (enrollment-gated)
 router.get('/lessons/:lessonId', authenticate, validate(lessonIdParam), enrollForLesson, asyncHandler(ctrl.list));
 router.post('/lessons/:lessonId', authenticate, validate(createCommentValidators), enrollForLesson, asyncHandler(ctrl.create));
+router.get('/:id/replies', authenticate, validate(commentIdParam), enrollForComment, asyncHandler(ctrl.replies));
 
 // Edit/delete own; delete also allowed for mentor (moderation) — checked in service.
 router.patch('/:id', authenticate, validate(updateCommentValidators), enrollForComment, asyncHandler(ctrl.update));

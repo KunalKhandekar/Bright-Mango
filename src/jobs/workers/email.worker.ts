@@ -13,6 +13,34 @@ function otpTemplate(otp: string, ttlMinutes: number): string {
   </div>`;
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function commentReplyTemplate(input: {
+  replierName: string;
+  lessonTitle: string;
+  replyExcerpt: string;
+  lessonUrl: string;
+}): string {
+  const replierName = escapeHtml(input.replierName);
+  const lessonTitle = escapeHtml(input.lessonTitle);
+  const replyExcerpt = escapeHtml(input.replyExcerpt);
+  const lessonUrl = escapeHtml(input.lessonUrl);
+
+  return `<div style="font-family:sans-serif">
+    <h2>${replierName} replied to your comment</h2>
+    <p>Your discussion in <b>${lessonTitle}</b> has a new reply.</p>
+    <blockquote style="border-left:3px solid #ddd;margin:16px 0;padding-left:12px;color:#444">${replyExcerpt}</blockquote>
+    <p><a href="${lessonUrl}">Open the lesson discussion</a></p>
+  </div>`;
+}
+
 export function startEmailWorker(): Worker {
   const worker = new Worker<EmailJob>(
     QUEUE_NAMES.EMAIL,
@@ -31,6 +59,13 @@ export function startEmailWorker(): Worker {
             to: data.to,
             subject: `You've been enrolled in ${data.courseTitle}`,
             html: `<p>You now have access to <b>${data.courseTitle}</b>. Log in here: <a href="${data.loginUrl}">${data.loginUrl}</a></p>`,
+          });
+          break;
+        case 'comment-reply':
+          await sendMail({
+            to: data.to,
+            subject: `${data.replierName} replied to your BrightMango comment`,
+            html: commentReplyTemplate(data),
           });
           break;
         case 'campaign':

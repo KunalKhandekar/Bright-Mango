@@ -1,49 +1,85 @@
 import { Types } from 'mongoose';
 import { Comment, CommentDoc } from './comment.model.js';
 import { getLessonOrThrow } from '../lesson/lesson.service.js';
+import { Lesson } from '../lesson/lesson.model.js';
+import { User } from '../user/user.model.js';
+import { enqueueEmail } from '../../jobs/queues.js';
 import { ROLES, Role } from '../../common/constants/roles.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
+import { env } from '../../config/env.js';
 
-interface ThreadedComment {
-  comment: CommentDoc;
-  replies: CommentDoc[];
+const AUTHOR_POPULATE = { path: 'userId', select: 'name avatar role' };
+
+function appUrl(): string {
+  return env.webAppUrl || (env.isProd ? 'https://app.brightmango.in' : 'http://localhost:3000');
 }
 
-/** List a lesson's comments as top-level threads with their replies (2 levels). */
+function excerpt(content: string): string {
+  const compact = content.replace(/\s+/g, ' ').trim();
+  return compact.length > 180 ? `${compact.slice(0, 177)}...` : compact;
+}
+
+/** List a lesson's top-level comments only. Replies are loaded lazily per parent. */
 export async function listForLesson(
   lessonId: string,
   pagination: PaginationParams,
-): Promise<{ items: ThreadedComment[]; total: number }> {
+): Promise<{ items: CommentDoc[]; total: number }> {
   const baseQuery = { lessonId, parentCommentId: null };
-  const author = { path: 'userId', select: 'name avatar role' };
-  const [tops, total] = await Promise.all([
+  const [items, total] = await Promise.all([
     Comment.find(baseQuery)
       .sort({ createdAt: -1 })
       .skip(pagination.skip)
       .limit(pagination.limit)
-      .populate(author)
+      .populate(AUTHOR_POPULATE)
       .lean<CommentDoc[]>(),
     Comment.countDocuments(baseQuery),
   ]);
 
-  const topIds = tops.map((c) => c._id);
-  const replies = await Comment.find({ parentCommentId: { $in: topIds } })
-    .sort({ createdAt: 1 })
-    .populate(author)
-    .lean<CommentDoc[]>();
+  return { items, total };
+}
 
-  const byParent = new Map<string, CommentDoc[]>();
-  for (const r of replies) {
-    const key = r.parentCommentId!.toString();
-    (byParent.get(key) ?? byParent.set(key, []).get(key)!).push(r);
-  }
+export async function listReplies(
+  parentCommentId: string,
+  pagination: PaginationParams,
+): Promise<{ items: CommentDoc[]; total: number }> {
+  await loadComment(parentCommentId);
+  const query = { parentCommentId: new Types.ObjectId(parentCommentId) };
+  const [items, total] = await Promise.all([
+    Comment.find(query)
+      .sort({ createdAt: 1 })
+      .skip(pagination.skip)
+      .limit(pagination.limit)
+      .populate(AUTHOR_POPULATE)
+      .lean<CommentDoc[]>(),
+    Comment.countDocuments(query),
+  ]);
+  return { items, total };
+}
 
-  return {
-    items: tops.map((comment) => ({ comment, replies: byParent.get(comment._id.toString()) ?? [] })),
-    total,
-  };
+async function enqueueReplyNotification(parent: CommentDoc, reply: CommentDoc, replierId: string): Promise<void> {
+  if (parent.userId.toString() === replierId) return;
+
+  const [recipient, replier, lesson] = await Promise.all([
+    User.findById(parent.userId).select('email name').lean(),
+    User.findById(replierId).select('name email').lean(),
+    Lesson.findById(reply.lessonId).select('title courseId').lean(),
+  ]);
+
+  if (!recipient?.email || !lesson) return;
+
+  const replierName = replier?.name || replier?.email || 'Someone';
+  const lessonUrl = `${appUrl()}/learn/${lesson.courseId.toString()}/lessons/${lesson._id.toString()}`;
+
+  await enqueueEmail({
+    type: 'comment-reply',
+    to: recipient.email,
+    replierName,
+    lessonTitle: lesson.title,
+    replyExcerpt: excerpt(reply.content),
+    lessonUrl,
+  });
 }
 
 export async function createComment(
@@ -53,12 +89,19 @@ export async function createComment(
   parentCommentId?: string,
 ): Promise<CommentDoc> {
   const lesson = await getLessonOrThrow(lessonId);
+  let parent: CommentDoc | null = null;
+  let rootCommentId: Types.ObjectId | null = null;
+  let ancestorIds: Types.ObjectId[] = [];
+  let depth = 0;
 
   if (parentCommentId) {
-    const parent = await Comment.findById(parentCommentId).lean<CommentDoc>();
+    parent = await Comment.findById(parentCommentId).lean<CommentDoc>();
     if (!parent || parent.lessonId.toString() !== lessonId) {
       throw ApiError.badRequest(ErrorCode.VALIDATION_ERROR, 'Parent comment does not belong to this lesson');
     }
+    ancestorIds = [...(parent.ancestorIds ?? []), parent._id];
+    depth = (parent.depth ?? 0) + 1;
+    rootCommentId = parent.rootCommentId ?? parent._id;
   }
 
   const comment = await Comment.create({
@@ -66,9 +109,21 @@ export async function createComment(
     courseId: lesson.courseId,
     userId,
     parentCommentId: parentCommentId ?? null,
+    rootCommentId,
+    ancestorIds,
+    depth,
     content,
   });
-  return comment.toObject() as CommentDoc;
+  const created = comment.toObject() as CommentDoc;
+
+  if (parent) {
+    await Promise.all([
+      Comment.updateOne({ _id: parent._id }, { $inc: { directReplyCount: 1 } }),
+      enqueueReplyNotification(parent, created, userId),
+    ]);
+  }
+
+  return created;
 }
 
 async function loadComment(commentId: string): Promise<CommentDoc> {
@@ -96,7 +151,7 @@ export async function updateOwnComment(
 
 /**
  * Delete a comment. The owner can delete their own; a mentor can moderate any.
- * Deleting a top-level comment cascades its replies.
+ * Deleting a comment cascades all descendants.
  */
 export async function deleteComment(commentId: string, userId: string, role: Role): Promise<void> {
   const comment = await loadComment(commentId);
@@ -104,9 +159,16 @@ export async function deleteComment(commentId: string, userId: string, role: Rol
   if (!isOwner && role !== ROLES.MENTOR) {
     throw ApiError.forbidden('You cannot delete this comment', ErrorCode.OWNERSHIP_REQUIRED);
   }
+  const id = new Types.ObjectId(commentId);
   await Comment.deleteMany({
-    $or: [{ _id: new Types.ObjectId(commentId) }, { parentCommentId: new Types.ObjectId(commentId) }],
+    $or: [{ _id: id }, { ancestorIds: id }, { parentCommentId: id }],
   });
+  if (comment.parentCommentId) {
+    await Comment.updateOne(
+      { _id: comment.parentCommentId },
+      { $inc: { directReplyCount: -1 } },
+    );
+  }
 }
 
 export async function listRecent(
@@ -118,6 +180,8 @@ export async function listRecent(
       .skip(pagination.skip)
       .limit(pagination.limit)
       .populate({ path: 'userId', select: 'name email avatar' })
+      .populate({ path: 'lessonId', select: 'title courseId' })
+      .populate({ path: 'courseId', select: 'title slug' })
       .lean(),
     Comment.estimatedDocumentCount(),
   ]);

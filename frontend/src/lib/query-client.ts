@@ -31,6 +31,7 @@ export const keys = {
   recentProgress: ['progress', 'recent'] as const,
   lessonComments: (lessonId: string, page: number) =>
     ['comments', 'lesson', lessonId, { page }] as const,
+  commentReplies: (commentId: string) => ['comments', 'replies', commentId] as const,
   // admin
   adminCourses: (page: number) => ['admin', 'courses', { page }] as const,
   adminCourse: (id: string) => ['admin', 'course', id] as const,

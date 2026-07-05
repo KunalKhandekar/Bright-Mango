@@ -5,6 +5,14 @@ export type EmailJob =
   | { type: 'otp'; to: string; otp: string; ttlMinutes: number }
   | { type: 'manual-enroll'; to: string; courseTitle: string; loginUrl: string }
   | {
+      type: 'comment-reply';
+      to: string;
+      replierName: string;
+      lessonTitle: string;
+      replyExcerpt: string;
+      lessonUrl: string;
+    }
+  | {
       type: 'campaign';
       to: string;
       subject: string;

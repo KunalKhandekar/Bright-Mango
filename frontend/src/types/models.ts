@@ -142,6 +142,7 @@ export interface Coupon {
 export interface CommentUser {
   _id: string
   name?: string
+  email?: string
   avatar?: string
   role: Role
 }
@@ -149,19 +150,17 @@ export interface CommentUser {
 export interface CommentNode {
   _id: string
   lessonId: string | Pick<Lesson, '_id' | 'title'>
-  courseId: string
+  courseId: string | Pick<Course, '_id' | 'title' | 'slug'>
   userId: string | CommentUser
   parentCommentId: string | null
+  rootCommentId?: string | null
+  ancestorIds?: string[]
+  depth: number
+  directReplyCount: number
   content: string
   isEdited: boolean
   createdAt: string
   updatedAt: string
-}
-
-/** Shape of GET /comments/lessons/:lessonId items — top-level comment + its replies */
-export interface CommentThread {
-  comment: CommentNode
-  replies: CommentNode[]
 }
 
 export interface LessonProgress {
