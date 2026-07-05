@@ -129,7 +129,7 @@ export function CourseFormDialog({ open, onOpenChange, course, onSaved }: Course
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{course ? 'Edit course' : 'New course'}</DialogTitle>
           <DialogDescription>
