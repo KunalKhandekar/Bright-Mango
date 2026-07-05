@@ -12,6 +12,14 @@ export async function create(req: Request, res: Response): Promise<Response> {
   return ApiResponse.created(res, 'Course created', { course });
 }
 
+export async function thumbnailUploadUrl(req: Request, res: Response): Promise<Response> {
+  const data = await courseService.createThumbnailUploadUrl(req.auth!.userId, {
+    fileName: req.body.fileName,
+    contentType: req.body.contentType,
+  });
+  return ApiResponse.ok(res, 'Course thumbnail upload URL issued', data);
+}
+
 export async function update(req: Request, res: Response): Promise<Response> {
   const course = await courseService.updateCourse(req.params.id, req.auth!.userId, req.body);
   return ApiResponse.ok(res, 'Course updated', { course });

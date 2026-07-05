@@ -29,7 +29,10 @@ export function startCourseDeleteWorker(): Worker<CourseDeleteJob> {
 
       // Clean up external assets (R2 resources) before removing DB records.
       const resources = await LessonResource.find({ courseId }).select('fileKey').lean();
-      await Promise.all(resources.map((r) => deleteObject(r.fileKey).catch(() => undefined)));
+      await Promise.all([
+        ...resources.map((r) => deleteObject(r.fileKey).catch(() => undefined)),
+        course.thumbnailKey ? deleteObject(course.thumbnailKey).catch(() => undefined) : Promise.resolve(),
+      ]);
       await LessonResource.deleteMany({ courseId });
 
       const { lessonUids } = await hardDeleteCourseTree(courseId);

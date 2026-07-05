@@ -8,6 +8,7 @@ import * as ctrl from './course.controller.js';
 import {
   createCourseValidators,
   updateCourseValidators,
+  thumbnailUploadValidators,
   courseIdParam,
   slugParam,
   confirmDeleteValidators,
@@ -21,6 +22,13 @@ router.get('/', asyncHandler(ctrl.listPublic));
 // Mentor admin (declared before '/:slug' to avoid route capture)
 router.get('/admin/mine', authenticate, authorize(PERMISSIONS.COURSE_UPDATE), asyncHandler(ctrl.listMine));
 router.get('/admin/:id', authenticate, authorize(PERMISSIONS.COURSE_UPDATE), validate(courseIdParam), asyncHandler(ctrl.getMineById));
+router.post(
+  '/thumbnail/upload-url',
+  authenticate,
+  authorize(PERMISSIONS.COURSE_CREATE, PERMISSIONS.COURSE_UPDATE),
+  validate(thumbnailUploadValidators),
+  asyncHandler(ctrl.thumbnailUploadUrl),
+);
 
 router.post('/', authenticate, authorize(PERMISSIONS.COURSE_CREATE), validate(createCourseValidators), asyncHandler(ctrl.create));
 router.patch('/:id', authenticate, authorize(PERMISSIONS.COURSE_UPDATE), validate(updateCourseValidators), asyncHandler(ctrl.update));

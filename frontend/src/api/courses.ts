@@ -25,7 +25,13 @@ export interface CourseInput {
   price: number
   shortDescription?: string
   description?: string
-  thumbnailUrl?: string
+  thumbnailKey?: string
+}
+
+export function createCourseThumbnailUploadUrl(input: { fileName: string; contentType: string }) {
+  return unwrap<{ uploadUrl: string; thumbnailKey: string; publicUrl: string }>(
+    api.post('/courses/thumbnail/upload-url', input),
+  )
 }
 
 export function createCourse(input: CourseInput) {

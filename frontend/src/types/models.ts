@@ -45,6 +45,7 @@ export interface Course {
   title: string
   slug: string
   thumbnailUrl?: string
+  thumbnailKey?: string
   shortDescription?: string
   description?: string
   /** paise */

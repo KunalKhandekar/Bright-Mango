@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { Types } from 'mongoose';
 import { Course, CourseDoc, COURSE_STATUS } from './course.model.js';
 import { Chapter } from '../chapter/chapter.model.js';
@@ -5,6 +6,10 @@ import { Lesson } from '../lesson/lesson.model.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
+import { env } from '../../config/env.js';
+import * as r2 from '../../integrations/r2.service.js';
+
+const THUMBNAIL_PREFIX = 'course-thumbnails';
 
 function slugify(title: string): string {
   return title
@@ -44,12 +49,64 @@ async function uniqueSlug(base: string): Promise<string> {
   return slug;
 }
 
+function publicAssetUrl(fileKey: string): string {
+  if (!env.r2.publicBaseUrl) {
+    throw new ApiError(
+      503,
+      ErrorCode.INTEGRATION_NOT_CONFIGURED,
+      'Public file serving is not configured (R2_PUBLIC_BASE_URL)',
+    );
+  }
+  return `${env.r2.publicBaseUrl.replace(/\/$/, '')}/${fileKey}`;
+}
+
+function assertOwnThumbnailKey(thumbnailKey: string, mentorId: string): void {
+  if (!thumbnailKey) return;
+  const prefix = `${THUMBNAIL_PREFIX}/${mentorId}/`;
+  if (!thumbnailKey.startsWith(prefix)) {
+    throw ApiError.badRequest(
+      ErrorCode.VALIDATION_ERROR,
+      'Thumbnail key does not belong to this mentor',
+    );
+  }
+}
+
+function buildCoursePayload(
+  mentorId: string,
+  input: CreateCourseInput | (Partial<CreateCourseInput> & { slug?: string }),
+): Partial<CreateCourseInput & { slug: string; thumbnailUrl: string }> {
+  const payload: Partial<CreateCourseInput & { slug: string; thumbnailUrl: string }> = {};
+
+  if (input.title !== undefined) payload.title = input.title;
+  if (input.shortDescription !== undefined) payload.shortDescription = input.shortDescription;
+  if (input.description !== undefined) payload.description = input.description;
+  if (input.price !== undefined) payload.price = input.price;
+  if (input.thumbnailKey !== undefined) {
+    assertOwnThumbnailKey(input.thumbnailKey, mentorId);
+    payload.thumbnailKey = input.thumbnailKey;
+    payload.thumbnailUrl = input.thumbnailKey ? publicAssetUrl(input.thumbnailKey) : '';
+  }
+
+  return payload;
+}
+
 export interface CreateCourseInput {
   title: string;
   shortDescription?: string;
   description?: string;
   price: number;
-  thumbnailUrl?: string;
+  thumbnailKey?: string;
+}
+
+export async function createThumbnailUploadUrl(
+  mentorId: string,
+  input: { fileName: string; contentType: string },
+): Promise<{ uploadUrl: string; thumbnailKey: string; publicUrl: string }> {
+  const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const thumbnailKey = `${THUMBNAIL_PREFIX}/${mentorId}/${crypto.randomBytes(8).toString('hex')}-${safeName}`;
+  const publicUrl = publicAssetUrl(thumbnailKey);
+  const uploadUrl = await r2.getPresignedUploadUrl(thumbnailKey, input.contentType);
+  return { uploadUrl, thumbnailKey, publicUrl };
 }
 
 export async function createCourse(
@@ -57,7 +114,8 @@ export async function createCourse(
   input: CreateCourseInput,
 ): Promise<CourseDoc> {
   const slug = await uniqueSlug(slugify(input.title));
-  const course = await Course.create({ ...input, mentorId, slug, status: 'draft' });
+  const payload = buildCoursePayload(mentorId.toString(), input);
+  const course = await Course.create({ ...payload, mentorId, slug, status: 'draft' });
   return course.toObject() as CourseDoc;
 }
 
@@ -66,9 +124,19 @@ export async function updateCourse(
   mentorId: string,
   patch: Partial<CreateCourseInput> & { slug?: string },
 ): Promise<CourseDoc> {
-  await assertCourseOwner(courseId, mentorId);
+  const existing = await assertCourseOwner(courseId, mentorId);
   if (patch.slug) patch.slug = await uniqueSlug(slugify(patch.slug));
-  const updated = await Course.findByIdAndUpdate(courseId, { $set: patch }, { new: true }).lean<CourseDoc>();
+  const payload = buildCoursePayload(mentorId, patch);
+  if (patch.slug !== undefined) payload.slug = patch.slug;
+
+  const updated = await Course.findByIdAndUpdate(courseId, { $set: payload }, { new: true }).lean<CourseDoc>();
+  if (
+    patch.thumbnailKey !== undefined &&
+    existing.thumbnailKey &&
+    existing.thumbnailKey !== patch.thumbnailKey
+  ) {
+    await r2.deleteObject(existing.thumbnailKey).catch(() => undefined);
+  }
   return updated!;
 }
 

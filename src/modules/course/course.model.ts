@@ -10,6 +10,7 @@ const courseSchema = new Schema(
     slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
 
     thumbnailUrl: { type: String, default: '' },
+    thumbnailKey: { type: String, default: '' },
     shortDescription: { type: String, default: '' },
     description: { type: String, default: '' },
 
