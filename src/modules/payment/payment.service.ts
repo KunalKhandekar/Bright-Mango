@@ -46,10 +46,16 @@ export async function createOrder(
     couponId = applied.couponId;
   }
 
-  const rzpOrder = await razorpay.createOrder(finalAmount, `course_${courseId}_${studentId}`, {
-    courseId,
-    studentId,
-  });
+  const receipt = `ord_${new Types.ObjectId().toString()}`
+
+  const rzpOrder = await razorpay.createOrder(
+    finalAmount,
+    receipt,
+    {
+      courseId,
+      studentId,
+    },
+  )
 
   const order = await Order.create({
     studentId,

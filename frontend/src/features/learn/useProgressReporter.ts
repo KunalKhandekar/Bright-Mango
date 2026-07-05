@@ -7,9 +7,15 @@ import { keys } from '@/lib/query-client'
 const REPORT_INTERVAL_MS = 15_000 // server rate limit is 5/10s per lesson; stay well under
 
 /**
- * Reports watched seconds for the active lesson: every 15s while playing,
- * plus a flush on pause and on lesson change/unmount. Progress is monotonic
- * server-side, so over-reporting a stale value is harmless.
+ * Reports watched seconds for the active lesson:
+ *
+ * - Every 15 seconds while the video is playing
+ * - When the video is paused
+ * - When the video ends
+ * - When the lesson changes or the component unmounts
+ *
+ * We cache the last known playback time because Vidstack's internal
+ * media provider may already be destroyed during React effect cleanup.
  */
 export function useProgressReporter(
   player: React.RefObject<MediaPlayerInstance | null>,
@@ -18,42 +24,138 @@ export function useProgressReporter(
   enabled: boolean,
 ) {
   const queryClient = useQueryClient()
+
   const lastSentRef = useRef(0)
+  const lastKnownTimeRef = useRef(0)
 
   useEffect(() => {
     if (!enabled || !lessonId) return
+
     lastSentRef.current = 0
+    lastKnownTimeRef.current = 0
 
     const send = (seconds: number) => {
       const value = Math.floor(seconds)
-      if (value <= 0 || value === lastSentRef.current) return
+
+      if (
+        !Number.isFinite(value) ||
+        value <= 0 ||
+        value === lastSentRef.current
+      ) {
+        return
+      }
+
       lastSentRef.current = value
-      reportProgress(lessonId, value)
+
+      void reportProgress(lessonId, value)
         .then(() => {
-          void queryClient.invalidateQueries({ queryKey: keys.courseProgress(courseId) })
+          void queryClient.invalidateQueries({
+            queryKey: keys.courseProgress(courseId),
+          })
         })
         .catch(() => {
-          // Rate limited or transient failure — the next tick will catch up.
+          // Allow the next interval/event to retry.
           lastSentRef.current = 0
         })
     }
 
-    const interval = setInterval(() => {
+    /**
+     * Read current playback time safely.
+     *
+     * Vidstack's MediaPlayerInstance can still exist while its internal
+     * provider has already been destroyed, so property access can throw.
+     */
+    const getCurrentTime = (
+      media: MediaPlayerInstance,
+    ): number | null => {
+      try {
+        const currentTime = media.currentTime
+
+        if (!Number.isFinite(currentTime)) {
+          return null
+        }
+
+        return currentTime
+      } catch {
+        return null
+      }
+    }
+
+    /**
+     * Report progress every 15 seconds while playing.
+     */
+    const interval = window.setInterval(() => {
       const media = player.current
-      if (media && !media.paused) send(media.currentTime)
+
+      if (!media) return
+
+      try {
+        if (media.paused) return
+
+        const currentTime = getCurrentTime(media)
+
+        if (currentTime === null) return
+
+        lastKnownTimeRef.current = currentTime
+        send(currentTime)
+      } catch {
+        // Vidstack provider may be in the process of being destroyed.
+      }
     }, REPORT_INTERVAL_MS)
 
+    /**
+     * Capture the current player instance for event subscriptions.
+     */
     const media = player.current
-    const unsubPause = media?.listen('pause', () => send(media.currentTime))
-    const unsubEnd = media?.listen('ended', () => send(media.duration))
+
+    const unsubPause = media?.listen('pause', () => {
+      const currentTime = getCurrentTime(media)
+
+      if (currentTime === null) return
+
+      lastKnownTimeRef.current = currentTime
+      send(currentTime)
+    })
+
+    const unsubEnd = media?.listen('ended', () => {
+      try {
+        const duration = media.duration
+
+        if (!Number.isFinite(duration) || duration <= 0) return
+
+        lastKnownTimeRef.current = duration
+        send(duration)
+      } catch {
+        // Vidstack provider has already been destroyed.
+      }
+    })
 
     return () => {
-      clearInterval(interval)
+      window.clearInterval(interval)
+
       unsubPause?.()
       unsubEnd?.()
-      // Flush on lesson change / unmount.
-      const current = player.current
-      if (current && current.currentTime > 0) send(current.currentTime)
+
+      /**
+       * Important:
+       * Do not access player.current.currentTime here.
+       *
+       * During unmount, Vidstack's internal provider can already be null,
+       * which causes:
+       *
+       * Cannot read properties of null (reading 'currentTime')
+       */
+      const lastKnownTime = lastKnownTimeRef.current
+
+      if (lastKnownTime > 0) {
+        send(lastKnownTime)
+      }
     }
-  }, [player, lessonId, courseId, enabled, queryClient])
+  }, [
+    player,
+    lessonId,
+    courseId,
+    enabled,
+    queryClient,
+  ])
 }

@@ -70,7 +70,7 @@ export async function unbanStudent(mentorId: string, studentId: string): Promise
 }
 
 export async function listStudentEnrollments(studentId: string): Promise<unknown[]> {
-  return Enrollment.find({ studentId }).lean();
+  return Enrollment.find({ studentId }).populate('courseId').lean();
 }
 
 /** Blacklist an email: record it, ban the matching account (if any), force logout. */
