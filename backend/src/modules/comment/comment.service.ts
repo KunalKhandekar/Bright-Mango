@@ -171,6 +171,23 @@ export async function deleteComment(commentId: string, userId: string, role: Rol
   }
 }
 
+/**
+ * Delete every comment authored by a user within a course, cascading each comment's
+ * descendant replies (even those written by other users) — reuses the same subtree
+ * pattern as {@link deleteComment}. Used when an enrollment is revoked.
+ */
+export async function deleteUserCommentsForCourse(userId: string, courseId: string): Promise<void> {
+  const ownComments = await Comment.find({ courseId, userId })
+    .select('_id')
+    .lean<{ _id: Types.ObjectId }[]>();
+  if (ownComments.length === 0) return;
+
+  const ids = ownComments.map((c) => c._id);
+  await Comment.deleteMany({
+    $or: [{ _id: { $in: ids } }, { ancestorIds: { $in: ids } }, { parentCommentId: { $in: ids } }],
+  });
+}
+
 export async function listRecent(
   pagination: PaginationParams,
 ): Promise<{ items: unknown[]; total: number }> {

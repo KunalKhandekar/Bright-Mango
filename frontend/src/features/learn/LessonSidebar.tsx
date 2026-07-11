@@ -32,12 +32,11 @@ export function LessonSidebar({
   }
   const progressByLesson = new Map(progress?.lessons.map((p) => [p.lessonId, p]) ?? [])
 
-  const activeChapterId = lessons.find((l) => l._id === activeLessonId)?.chapterId
-
   return (
     <Accordion
       type="multiple"
-      defaultValue={activeChapterId ? [activeChapterId] : chapters.slice(0, 1).map((c) => c._id)}
+      // All chapters open by default; each remains individually collapsible.
+      defaultValue={chapters.map((c) => c._id)}
       className="w-full"
     >
       {chapters.map((chapter, index) => {
@@ -80,6 +79,11 @@ export function LessonSidebar({
                           <Circle className="size-4 shrink-0 opacity-40" />
                         )}
                         <span className="min-w-0 flex-1 truncate">{lesson.title}</span>
+                        {!p?.completed && p && p.completionPercentage > 0 ? (
+                          <span className="text-primary text-xs font-medium tabular-nums">
+                            {p.completionPercentage}%
+                          </span>
+                        ) : null}
                         {lesson.durationSeconds ? (
                           <span className="text-xs tabular-nums opacity-70">
                             {formatDuration(lesson.durationSeconds)}

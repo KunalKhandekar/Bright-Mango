@@ -68,16 +68,29 @@ export interface CourseProgress {
 }
 
 export async function getCourseProgress(studentId: string, courseId: string): Promise<CourseProgress> {
-  const [totalLessons, progresses] = await Promise.all([
-    Lesson.countDocuments({ courseId }),
+  const [lessons, progresses] = await Promise.all([
+    Lesson.find({ courseId }).select('durationSeconds').lean<{ _id: unknown; durationSeconds: number }[]>(),
     LessonProgress.find({ studentId, courseId }).lean<LessonProgressDoc[]>(),
   ]);
 
-  const completedLessons = progresses.filter((p) => p.completed).length;
+  const watchedByLesson = new Map(progresses.map((p) => [p.lessonId.toString(), p.watchedSeconds]));
+
+  // Overall progress is duration-based: watched seconds / total course duration.
+  // Lessons that are still encoding (durationSeconds === 0) are excluded from the
+  // denominator so they don't cap the percentage below 100%.
+  let totalDuration = 0;
+  let watchedTotal = 0;
+  for (const lesson of lessons) {
+    const duration = lesson.durationSeconds || 0;
+    if (duration <= 0) continue;
+    totalDuration += duration;
+    watchedTotal += Math.min(watchedByLesson.get(String(lesson._id)) ?? 0, duration);
+  }
+
   return {
-    totalLessons,
-    completedLessons,
-    percentage: totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0,
+    totalLessons: lessons.length,
+    completedLessons: progresses.filter((p) => p.completed).length,
+    percentage: totalDuration > 0 ? Math.min(100, Math.round((watchedTotal / totalDuration) * 100)) : 0,
     lessons: progresses.map((p) => ({
       lessonId: p.lessonId.toString(),
       completionPercentage: p.completionPercentage,

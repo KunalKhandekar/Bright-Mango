@@ -52,6 +52,8 @@ export interface Course {
   price: number
   status: CourseStatus
   publishedAt?: string
+  /** When the scheduled hard-delete will run (present only while status is scheduled_delete). */
+  scheduledDeleteAt?: string | null
   createdAt: string
   updatedAt: string
 }

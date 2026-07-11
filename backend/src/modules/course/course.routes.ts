@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../common/middlewares/asyncHandler.js';
 import { validate } from '../../common/middlewares/validate.js';
-import { authenticate } from '../../common/middlewares/authenticate.js';
+import { authenticate, authenticateOptional } from '../../common/middlewares/authenticate.js';
 import { authorize } from '../../common/middlewares/authorize.js';
 import { PERMISSIONS } from '../../common/constants/permissions.js';
 import * as ctrl from './course.controller.js';
@@ -18,6 +18,10 @@ const router = Router();
 
 // Public
 router.get('/', asyncHandler(ctrl.listPublic));
+
+// Course header meta by id, for the student lesson viewer (public for published; owner for drafts).
+// Declared before '/:slug' to avoid route capture.
+router.get('/id/:id', authenticateOptional, validate(courseIdParam), asyncHandler(ctrl.getMetaById));
 
 // Mentor admin (declared before '/:slug' to avoid route capture)
 router.get('/admin/mine', authenticate, authorize(PERMISSIONS.COURSE_UPDATE), asyncHandler(ctrl.listMine));

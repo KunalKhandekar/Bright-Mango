@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { MediaPlayerInstance } from '@vidstack/react'
 import { ArrowLeft, Clapperboard, GraduationCap, Loader2, Lock, VideoOff } from 'lucide-react'
 import { listChapters } from '@/api/chapters'
+import { getCourseMeta } from '@/api/courses'
 import { getMyEnrollmentForCourse } from '@/api/enrollments'
 import { getPlayback, listLessonsByCourse } from '@/api/lessons'
 import { getCourseProgress } from '@/api/progress'
@@ -33,6 +34,11 @@ export function LearnPage() {
     queryKey: keys.enrollmentAccess(courseId),
     queryFn: () => getMyEnrollmentForCourse(courseId),
     enabled: !isMentor,
+  })
+  const courseQuery = useQuery({
+    queryKey: keys.courseMeta(courseId),
+    queryFn: () => getCourseMeta(courseId),
+    enabled: !!courseId,
   })
   const chaptersQuery = useQuery({
     queryKey: keys.chapters(courseId),
@@ -169,7 +175,8 @@ export function LearnPage() {
     </div>
   )
 
-  const overallProgress = progressQuery.data
+  // Progress is an enrolled-only feature — hide it entirely for preview/non-enrolled viewers.
+  const overallProgress = hasAccess ? progressQuery.data : undefined
 
   return (
     <div className="bg-background min-h-svh">
@@ -177,9 +184,14 @@ export function LearnPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')} aria-label="Back">
           <ArrowLeft className="size-5" />
         </Button>
-        <Link to="/" className="hidden items-center gap-2 font-semibold sm:flex">
+        <Link to="/" className="flex shrink-0 items-center gap-2 font-semibold">
           <GraduationCap className="text-primary size-5" />
         </Link>
+        {courseQuery.data?.course.title && (
+          <span className="min-w-0 truncate font-semibold" title={courseQuery.data.course.title}>
+            {courseQuery.data.course.title}
+          </span>
+        )}
         {overallProgress && overallProgress.totalLessons > 0 && (
           <div className="ml-auto flex items-center gap-3">
             <span className="text-muted-foreground hidden text-xs sm:inline">
@@ -217,7 +229,7 @@ export function LearnPage() {
               <LessonSidebar
                 chapters={chapters}
                 lessons={lessons}
-                progress={progressQuery.data}
+                progress={overallProgress}
                 activeLessonId={activeLesson?._id ?? null}
                 onSelect={handleSelect}
               />
@@ -227,23 +239,24 @@ export function LearnPage() {
 
         <div className="space-y-4 lg:hidden">
           {playerArea}
-          <Tabs defaultValue="lessons">
+          {/* On mobile, default to the discussion when the user can watch; otherwise lessons. */}
+          <Tabs defaultValue={canWatch ? 'comments' : 'lessons'}>
             <TabsList className="w-full">
+              <TabsTrigger value="comments" className="flex-1" disabled={!canWatch}>
+                Comments
+              </TabsTrigger>
               <TabsTrigger value="lessons" className="flex-1">
                 Lessons
               </TabsTrigger>
               <TabsTrigger value="resources" className="flex-1" disabled={!canWatch}>
                 Resources
               </TabsTrigger>
-              <TabsTrigger value="comments" className="flex-1" disabled={!canWatch}>
-                Comments
-              </TabsTrigger>
             </TabsList>
             <TabsContent value="lessons">
               <LessonSidebar
                 chapters={chapters}
                 lessons={lessons}
-                progress={progressQuery.data}
+                progress={overallProgress}
                 activeLessonId={activeLesson?._id ?? null}
                 onSelect={handleSelect}
               />

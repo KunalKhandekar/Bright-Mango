@@ -19,6 +19,10 @@ const courseSchema = new Schema(
     status: { type: String, enum: COURSE_STATUS, default: 'draft' },
 
     publishedAt: { type: Date },
+
+    // When set, the moment the scheduled hard-delete will run (24h after confirm).
+    // Cleared on cancel; drives the countdown banner in the mentor UI.
+    scheduledDeleteAt: { type: Date, default: null },
   },
   { timestamps: true },
 );

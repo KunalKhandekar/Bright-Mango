@@ -19,6 +19,7 @@ import { UserAvatar } from '@/components/shared/UserAvatar'
 import { errorMessage } from '@/lib/error-messages'
 import { formatDate, formatRelativeTime } from '@/lib/format'
 import { keys } from '@/lib/query-client'
+import { refId } from '@/types/models'
 import { ManualEnrollDialog } from '@/features/admin/students/ManualEnrollDialog'
 
 export function StudentDetailPage() {
@@ -137,7 +138,10 @@ export function StudentDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <ManualEnrollDialog email={student.email} />
+          <ManualEnrollDialog
+            email={student.email}
+            enrolledCourseIds={enrollments.map((e) => refId(e.courseId))}
+          />
           <ConfirmDialog
             trigger={
               <Button variant={banned ? 'outline' : 'destructive'} size="sm">

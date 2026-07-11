@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2, ShieldAlert, Trash2, Undo2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -18,8 +18,30 @@ import {
 } from '@/components/ui/dialog'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { errorMessage } from '@/lib/error-messages'
-import { formatDateTime } from '@/lib/format'
+import { formatCountdown, formatDateTime, formatDateTimeWithSeconds } from '@/lib/format'
 import type { Course } from '@/types/models'
+
+/** Live-ticking countdown to the scheduled deletion moment. */
+function DeletionCountdown({ executeAt }: { executeAt: string }) {
+  const target = new Date(executeAt).getTime()
+  const [remaining, setRemaining] = useState(() => target - Date.now())
+
+  useEffect(() => {
+    setRemaining(target - Date.now())
+    const id = setInterval(() => setRemaining(target - Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [target])
+
+  if (remaining <= 0) return <>Deletion is being processed…</>
+  return (
+    <>
+      It will be permanently removed on{' '}
+      <span className="font-medium">{formatDateTimeWithSeconds(executeAt)}</span> — in{' '}
+      <span className="font-medium tabular-nums">{formatCountdown(remaining)}</span> — unless you
+      cancel.
+    </>
+  )
+}
 
 /** Banner shown while the course is scheduled for deletion, with cancel. */
 export function DeletionScheduledBanner({ course }: { course: Course }) {
@@ -34,7 +56,11 @@ export function DeletionScheduledBanner({ course }: { course: Course }) {
       <div className="flex-1 text-sm">
         <p className="font-medium">This course is scheduled for deletion</p>
         <p className="text-muted-foreground">
-          It will be permanently removed within 24 hours unless you cancel.
+          {course.scheduledDeleteAt ? (
+            <DeletionCountdown executeAt={course.scheduledDeleteAt} />
+          ) : (
+            'It will be permanently removed within 24 hours unless you cancel.'
+          )}
         </p>
       </div>
       <Button

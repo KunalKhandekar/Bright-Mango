@@ -41,6 +41,11 @@ export async function getBySlug(req: Request, res: Response): Promise<Response> 
   return ApiResponse.ok(res, 'Course', { course });
 }
 
+export async function getMetaById(req: Request, res: Response): Promise<Response> {
+  const course = await courseService.getCourseMeta(req.params.id, req.auth?.userId);
+  return ApiResponse.ok(res, 'Course', { course });
+}
+
 export async function listMine(req: Request, res: Response): Promise<Response> {
   const pagination = getPagination(req);
   const { items, total } = await courseService.listMentorCourses(req.auth!.userId, pagination);

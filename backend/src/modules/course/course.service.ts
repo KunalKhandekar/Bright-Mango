@@ -3,6 +3,10 @@ import { Types } from 'mongoose';
 import { Course, CourseDoc, COURSE_STATUS } from './course.model.js';
 import { Chapter } from '../chapter/chapter.model.js';
 import { Lesson } from '../lesson/lesson.model.js';
+import { Enrollment } from '../enrollment/enrollment.model.js';
+import { LessonProgress } from '../progress/lessonProgress.model.js';
+import { RecentlyWatched } from '../progress/recentlyWatched.model.js';
+import { Comment } from '../comment/comment.model.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
@@ -176,6 +180,21 @@ export async function getPublishedBySlug(slug: string): Promise<CourseDoc> {
   return course;
 }
 
+/**
+ * Minimal course header info by id, for the student lesson viewer.
+ * Public for published courses; owner-only for drafts (mirrors listLessonsByCourse).
+ */
+export async function getCourseMeta(
+  courseId: string,
+  requesterId?: string,
+): Promise<Pick<CourseDoc, '_id' | 'title' | 'slug' | 'status'>> {
+  const course = await getCourseOrThrow(courseId);
+  if (course.status !== 'published' && course.mentorId.toString() !== requesterId) {
+    throw ApiError.notFound('Course not found');
+  }
+  return { _id: course._id, title: course.title, slug: course.slug, status: course.status };
+}
+
 export async function listMentorCourses(
   mentorId: string,
   pagination: PaginationParams,
@@ -195,14 +214,20 @@ export async function setStatus(courseId: string, status: CourseStatus): Promise
   await Course.updateOne({ _id: courseId }, { $set: { status } });
 }
 
-/** Hard-delete a course and its content tree (called by the courseDelete worker). */
+/** Hard-delete a course and its full footprint (called by the courseDelete worker). */
 export async function hardDeleteCourseTree(courseId: string): Promise<{ lessonUids: string[] }> {
   const lessons = await Lesson.find({ courseId }).select('videoUid').lean();
   const lessonUids = lessons.map((l) => l.videoUid).filter((u): u is string => Boolean(u));
 
+  // Remove the content tree plus every record keyed to the course, so nothing is
+  // left orphaned: enrollments, per-student progress/recently-watched, and comments.
   await Promise.all([
     Lesson.deleteMany({ courseId }),
     Chapter.deleteMany({ courseId }),
+    Enrollment.deleteMany({ courseId }),
+    LessonProgress.deleteMany({ courseId }),
+    RecentlyWatched.deleteMany({ courseId }),
+    Comment.deleteMany({ courseId }),
     Course.deleteOne({ _id: courseId }),
   ]);
   return { lessonUids };

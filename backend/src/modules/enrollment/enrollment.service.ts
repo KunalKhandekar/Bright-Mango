@@ -3,6 +3,9 @@ import { Enrollment, EnrollmentDoc } from './enrollment.model.js';
 import { Course } from '../course/course.model.js';
 import { getCourseOrThrow } from '../course/course.service.js';
 import { resolveOrCreateStudent } from '../user/user.service.js';
+import { LessonProgress } from '../progress/lessonProgress.model.js';
+import { RecentlyWatched } from '../progress/recentlyWatched.model.js';
+import { deleteUserCommentsForCourse } from '../comment/comment.service.js';
 import { enqueueEmail } from '../../jobs/queues.js';
 import { auditLog } from '../audit/audit.service.js';
 import { ApiError } from '../../common/http/ApiError.js';
@@ -81,6 +84,17 @@ export async function revoke(enrollmentId: string, mentorId: string): Promise<vo
     throw ApiError.forbidden('Not your student', ErrorCode.OWNERSHIP_REQUIRED);
   }
   await Enrollment.deleteOne({ _id: enrollmentId });
+
+  // Removing access also removes the student's footprint in that course:
+  // lesson progress, recently-watched entries, and their comment threads.
+  const studentId = enrollment.studentId.toString();
+  const courseId = enrollment.courseId.toString();
+  await Promise.all([
+    LessonProgress.deleteMany({ studentId, courseId }),
+    RecentlyWatched.deleteMany({ studentId, courseId }),
+    deleteUserCommentsForCourse(studentId, courseId),
+  ]);
+
   auditLog({
     userId: mentorId,
     action: 'ENROLLMENT_REVOKED',

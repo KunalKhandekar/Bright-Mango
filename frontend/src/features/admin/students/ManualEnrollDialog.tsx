@@ -29,10 +29,16 @@ import { isApiError } from '@/types/api'
 interface ManualEnrollDialogProps {
   /** Prefill and lock the student email (from the student detail page). */
   email?: string
+  /** Course ids the student is already enrolled in — excluded from the picker. */
+  enrolledCourseIds?: string[]
   onEnrolled?: () => void
 }
 
-export function ManualEnrollDialog({ email: fixedEmail, onEnrolled }: ManualEnrollDialogProps) {
+export function ManualEnrollDialog({
+  email: fixedEmail,
+  enrolledCourseIds = [],
+  onEnrolled,
+}: ManualEnrollDialogProps) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState(fixedEmail ?? '')
@@ -44,6 +50,10 @@ export function ManualEnrollDialog({ email: fixedEmail, onEnrolled }: ManualEnro
     queryFn: () => listMyCourses({ limit: 100 }),
     enabled: open,
   })
+
+  // Don't offer courses the student is already enrolled in.
+  const enrolledSet = new Set(enrolledCourseIds)
+  const availableCourses = (coursesQuery.data?.courses ?? []).filter((c) => !enrolledSet.has(c._id))
 
   const enroll = useMutation({
     mutationFn: () => enrollManually({ email: email.trim(), courseId }),
@@ -105,11 +115,17 @@ export function ManualEnrollDialog({ email: fixedEmail, onEnrolled }: ManualEnro
                 />
               </SelectTrigger>
               <SelectContent>
-                {(coursesQuery.data?.courses ?? []).map((course) => (
-                  <SelectItem key={course._id} value={course._id}>
-                    {course.title}
-                  </SelectItem>
-                ))}
+                {availableCourses.length === 0 && !coursesQuery.isPending ? (
+                  <div className="text-muted-foreground px-2 py-1.5 text-sm">
+                    No more courses to enroll in
+                  </div>
+                ) : (
+                  availableCourses.map((course) => (
+                    <SelectItem key={course._id} value={course._id}>
+                      {course.title}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>

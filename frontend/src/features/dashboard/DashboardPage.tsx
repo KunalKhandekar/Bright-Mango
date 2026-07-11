@@ -29,7 +29,8 @@ export function DashboardPage() {
   })
 
   const enrollments = enrollmentsQuery.data?.enrollments ?? []
-  const recent = (recentQuery.data?.lessons ?? []).slice(0, 5)
+  // Continue watching surfaces only the single most-recently-watched lesson.
+  const recent = (recentQuery.data?.lessons ?? []).slice(0, 1)
 
   return (
     <div className="space-y-8">

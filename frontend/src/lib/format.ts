@@ -51,6 +51,31 @@ export function formatDateTime(value: string | Date): string {
   })
 }
 
+/** Like formatDateTime but includes seconds, e.g. "13 Jul 2026, 4:05:09 pm" */
+export function formatDateTimeWithSeconds(value: string | Date): string {
+  return new Date(value).toLocaleString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  })
+}
+
+/** Break a positive millisecond span into a "23h 59m 58s" style countdown label. */
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  const parts: string[] = []
+  if (h > 0) parts.push(`${h}h`)
+  if (h > 0 || m > 0) parts.push(`${m}m`)
+  parts.push(`${s}s`)
+  return parts.join(' ')
+}
+
 export function formatRelativeTime(value: string | Date): string {
   const diffMs = Date.now() - new Date(value).getTime()
   const sec = Math.round(diffMs / 1000)

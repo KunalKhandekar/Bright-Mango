@@ -20,6 +20,7 @@ export const keys = {
   sessions: ['sessions'] as const,
   courses: (page: number) => ['courses', { page }] as const,
   course: (slug: string) => ['course', slug] as const,
+  courseMeta: (courseId: string) => ['course', 'meta', courseId] as const,
   chapters: (courseId: string) => ['chapters', courseId] as const,
   lessonsByCourse: (courseId: string) => ['lessons', courseId] as const,
   playback: (lessonId: string) => ['playback', lessonId] as const,

@@ -4,6 +4,7 @@ import { enqueueCourseDeletion, removeCourseDeletion, enqueueEmail } from '../..
 import { requestActionOtp, verifyActionOtp } from '../auth/otp.service.js';
 import { auditLog } from '../audit/audit.service.js';
 import { assertCourseOwner, setStatus } from './course.service.js';
+import { Course } from './course.model.js';
 import { CourseDeletionRequest } from './courseDeletionRequest.model.js';
 
 const PURPOSE = 'course_delete';
@@ -41,6 +42,7 @@ export async function confirmCourseDeletion(
     status: 'scheduled',
   });
   await setStatus(courseId, 'scheduled_delete');
+  await Course.updateOne({ _id: courseId }, { $set: { scheduledDeleteAt: executeAt } });
   auditLog({
     userId: mentorId,
     action: 'COURSE_DELETE_SCHEDULED',
@@ -61,6 +63,7 @@ export async function cancelCourseDeletion(courseId: string, mentorId: string): 
   req.status = 'cancelled';
   await req.save();
   await setStatus(courseId, 'draft');
+  await Course.updateOne({ _id: courseId }, { $set: { scheduledDeleteAt: null } });
   auditLog({
     userId: mentorId,
     action: 'COURSE_DELETE_CANCELLED',

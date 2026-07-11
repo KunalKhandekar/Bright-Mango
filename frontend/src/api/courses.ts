@@ -9,6 +9,13 @@ export function getCourseBySlug(slug: string) {
   return unwrap<{ course: Course }>(api.get(`/courses/${slug}`))
 }
 
+/** Minimal course header info by id (used by the student lesson viewer). */
+export function getCourseMeta(id: string) {
+  return unwrap<{ course: Pick<Course, '_id' | 'title' | 'slug' | 'status'> }>(
+    api.get(`/courses/id/${id}`),
+  )
+}
+
 // ── Mentor ──────────────────────────────────────────────────────────────────
 
 export function listMyCourses(params: { page?: number; limit?: number } = {}) {
