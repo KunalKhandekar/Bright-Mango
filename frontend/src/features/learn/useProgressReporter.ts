@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react'
-import type { MediaPlayerInstance } from '@vidstack/react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { reportProgress, reportProgressBeacon } from '@/api/progress'
 import { keys } from '@/lib/query-client'
@@ -13,66 +12,55 @@ const REPORT_INTERVAL_MS = 15_000 // server rate limit is 5/10s per lesson; stay
 const BASE_STEP_SECONDS = 2
 
 /**
+ * Event handlers wired onto <MediaPlayer> (via VideoPlayer). We use Vidstack's React
+ * event-callback props — NOT the imperative `player.listen(...)`, which is scope-bound and
+ * silently fails to deliver when called from a React effect.
+ */
+export interface ProgressHandlers {
+  onTimeUpdate: (detail: { currentTime: number }) => void
+  onPlay: () => void
+  onPause: () => void
+  onSeeking: (detail: number) => void
+  onRateChange: (detail: number) => void
+  onEnded: () => void
+}
+
+/**
  * Reports "true watch-time" for the active lesson: only seconds actually played are
  * counted (seeks/jumps are ignored), so progress can't be gamed by scrubbing to the end.
  *
  * Accumulation (accurate) is decoupled from network sends (throttled):
  * - Every `time-update` tick adds the elapsed play-time to an unsent accumulator.
- * - The accumulated delta + current position are flushed to the server on a 15s
- *   heartbeat, on pause, on seek, on ended, on lesson change/unmount, and on page hide
- *   (via a keepalive beacon so the final seconds survive a tab/window close).
+ * - The accumulated delta + current position are flushed to the server on a 15s heartbeat,
+ *   on pause, on seek, on ended, on lesson change/unmount, and on page hide (via a keepalive
+ *   beacon so the final seconds survive a tab/window close).
  *
- * We read playback time defensively because Vidstack's media provider may already be
- * destroyed during React effect cleanup.
+ * Returns handlers that the caller spreads onto <VideoPlayer/>. Disabled (mentors, guests,
+ * non-enrolled preview viewers) → all handlers no-op so nothing is reported.
  */
 export function useProgressReporter(
-  player: MediaPlayerInstance | null,
   lessonId: string | null,
   courseId: string,
   enabled: boolean,
-) {
+): ProgressHandlers {
   const queryClient = useQueryClient()
-
-  // Drain progress left un-acked by a prior crash / offline period, and whenever
-  // connectivity is restored. Only for viewers who actually report (enrolled, non-mentor).
-  useEffect(() => {
-    if (!enabled) return
-    return startAutoFlush()
-  }, [enabled])
 
   const unsentWatchedRef = useRef(0) // watch-time (s) accumulated but not yet sent
   const lastTickPosRef = useRef(0) // last currentTime seen, for delta computation
   const positionRef = useRef(0) // latest playback position, for the resume bookmark
   const lastSentPosRef = useRef(-1) // avoid no-op sends
+  const pausedRef = useRef(true) // heartbeat only sends while playing
+  const rateRef = useRef(1) // current playback rate, for the continuity threshold
 
-  useEffect(() => {
-    // Wait for the actual player instance — the effect re-runs when it attaches (player is
-    // state, not a ref), so listeners are wired up even on a cold load where the player
-    // mounts after `enabled`/`lessonId` are already set.
-    if (!enabled || !lessonId || !player) return
-
-    unsentWatchedRef.current = 0
-    lastTickPosRef.current = 0
-    positionRef.current = 0
-    lastSentPosRef.current = -1
-
-    /** Read current playback time safely (provider may be mid-teardown). */
-    const getCurrentTime = (media: MediaPlayerInstance): number | null => {
-      try {
-        const currentTime = media.currentTime
-        return Number.isFinite(currentTime) ? currentTime : null
-      } catch {
-        return null
-      }
-    }
-
-    const send = (useBeacon: boolean) => {
+  // The single choke point to the API. Reserves the delta up front so overlapping flushes
+  // can't send the same seconds twice; a failure spills to the durable queue.
+  const send = useCallback(
+    (useBeacon: boolean) => {
+      if (!enabled || !lessonId) return
       const delta = Math.floor(unsentWatchedRef.current)
       const pos = Math.floor(positionRef.current)
       if (delta <= 0 && pos === lastSentPosRef.current) return
 
-      // Reserve the delta up front so overlapping flushes can't send the same seconds
-      // twice; restore it (via the durable queue) only if the request fails.
       unsentWatchedRef.current -= delta
       lastSentPosRef.current = pos
 
@@ -90,78 +78,81 @@ export function useProgressReporter(
       void reportProgress(lessonId, delta, pos)
         .then(() => {
           void queryClient.invalidateQueries({ queryKey: keys.courseProgress(courseId) })
-          // Opportunistically drain anything a prior beacon/failure left queued (beacons
-          // have no ack, so their durable entries linger until a real request cleans them).
+          // Drain anything a prior beacon/failure left queued (beacons have no ack).
           void flush()
         })
         .catch(() => {
-          // Spill to durable storage instead of an in-memory ref so the delta survives a
-          // reload/offline period; startAutoFlush drains it on reconnect.
+          // Spill to durable storage so the delta survives a reload/offline period.
           enqueue(lessonId, courseId, delta, pos)
         })
-    }
+    },
+    [enabled, lessonId, courseId, queryClient],
+  )
 
-    const media = player
-
-    // Accumulate real play-time. A tick within MAX_STEP of the previous position is
-    // continuous playback; anything else is a seek/rewind and is not counted.
-    const unsubTime = media.listen('time-update', () => {
-      const t = getCurrentTime(media)
-      if (t === null) return
+  // Accumulate real play-time. A tick within BASE_STEP (scaled by rate) of the previous
+  // position is continuous playback; a larger forward jump (seek) or rewind is not counted.
+  const onTimeUpdate = useCallback(
+    (detail: { currentTime: number }) => {
+      if (!enabled) return
+      const t = detail?.currentTime
+      if (!Number.isFinite(t)) return
       const dt = t - lastTickPosRef.current
-      // Watching at 2x still advances the timeline 1:1 (just faster), so it counts as
-      // fully watched. Scale the continuity threshold by playback rate so a fast tick
-      // isn't misread as a seek; genuine seeks still exceed it.
-      let rate = 1
-      try {
-        rate = media.playbackRate || 1
-      } catch {
-        rate = 1
-      }
-      if (!media.paused && dt > 0 && dt <= BASE_STEP_SECONDS * Math.max(1, rate)) {
+      const rate = rateRef.current || 1
+      if (dt > 0 && dt <= BASE_STEP_SECONDS * Math.max(1, rate)) {
         unsentWatchedRef.current += dt
       }
       lastTickPosRef.current = t
       positionRef.current = t
-    })
+    },
+    [enabled],
+  )
 
-    // A seek must not count as watched: resync the baseline, then flush what we have.
-    const unsubSeeking = media.listen('seeking', () => {
-      const t = getCurrentTime(media)
-      if (t !== null) {
-        lastTickPosRef.current = t
-        positionRef.current = t
-      }
+  const onPlay = useCallback(() => {
+    pausedRef.current = false
+  }, [])
+
+  const onPause = useCallback(() => {
+    pausedRef.current = true
+    send(false)
+  }, [send])
+
+  // A seek must not count as watched: resync the baseline to the seek target, then flush.
+  const onSeeking = useCallback(
+    (detail: number) => {
+      const t = Number.isFinite(detail) ? detail : positionRef.current
+      lastTickPosRef.current = t
+      positionRef.current = t
       send(false)
-    })
+    },
+    [send],
+  )
 
-    const unsubPause = media.listen('pause', () => {
-      const t = getCurrentTime(media)
-      if (t !== null) positionRef.current = t
-      send(false)
-    })
+  const onRateChange = useCallback((detail: number) => {
+    rateRef.current = detail || 1
+  }, [])
 
-    const unsubEnd = media.listen('ended', () => {
-      try {
-        const duration = media.duration
-        if (Number.isFinite(duration) && duration > 0) positionRef.current = duration
-      } catch {
-        // provider destroyed; keep the last known position
-      }
-      send(false)
-    })
+  const onEnded = useCallback(() => {
+    pausedRef.current = true
+    send(false)
+  }, [send])
 
-    // Heartbeat while playing.
+  // Reset accumulators for the new lesson, run the heartbeat while playing, and flush
+  // reliably on tab-hide / unload / lesson-change (beacon). Keyed on lesson/enable only —
+  // no player instance needed, so no teardown churn when the player re-renders.
+  useEffect(() => {
+    if (!enabled || !lessonId) return
+
+    unsentWatchedRef.current = 0
+    lastTickPosRef.current = 0
+    positionRef.current = 0
+    lastSentPosRef.current = -1
+    pausedRef.current = true
+    rateRef.current = 1
+
     const interval = window.setInterval(() => {
-      try {
-        if (media.paused) return
-        send(false)
-      } catch {
-        // provider mid-teardown
-      }
+      if (!pausedRef.current) send(false)
     }, REPORT_INTERVAL_MS)
 
-    // Flush reliably when the tab is hidden or the page is being unloaded.
     const onHide = () => {
       if (document.visibilityState === 'hidden') send(true)
     }
@@ -171,16 +162,18 @@ export function useProgressReporter(
 
     return () => {
       window.clearInterval(interval)
-      unsubTime?.()
-      unsubSeeking?.()
-      unsubPause?.()
-      unsubEnd?.()
       document.removeEventListener('visibilitychange', onHide)
       window.removeEventListener('pagehide', onPageHide)
-
-      // Final flush for the lesson we're leaving. Use a beacon and only the cached
-      // position ref — do NOT touch player.current here, its provider may be null.
+      // Final flush for the lesson we're leaving (this cleanup closes over the old send).
       send(true)
     }
-  }, [player, lessonId, courseId, enabled, queryClient])
+  }, [enabled, lessonId, send])
+
+  // Drain progress left un-acked by a prior crash / offline period, and on reconnect.
+  useEffect(() => {
+    if (!enabled) return
+    return startAutoFlush()
+  }, [enabled])
+
+  return { onTimeUpdate, onPlay, onPause, onSeeking, onRateChange, onEnded }
 }

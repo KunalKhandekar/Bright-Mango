@@ -5,8 +5,10 @@ import {
   DefaultVideoLayout,
   defaultLayoutIcons,
 } from '@vidstack/react/player/layouts/default'
-import { forwardRef, useRef } from 'react'
+import { useRef } from 'react'
 import { env } from '@/lib/env'
+
+type MediaPlayerProps = React.ComponentProps<typeof MediaPlayer>
 
 interface VideoPlayerProps {
   /** Signed playback token from GET /lessons/:id/playback */
@@ -17,6 +19,13 @@ interface VideoPlayerProps {
   /** Resume position (seconds). Applied once when the media is ready. */
   startTime?: number
   onEnded?: () => void
+  // Progress-reporter handlers (Vidstack React event props). Optional so the player works
+  // standalone; forwarded straight to <MediaPlayer>.
+  onTimeUpdate?: MediaPlayerProps['onTimeUpdate']
+  onPlay?: MediaPlayerProps['onPlay']
+  onPause?: MediaPlayerProps['onPause']
+  onSeeking?: MediaPlayerProps['onSeeking']
+  onRateChange?: MediaPlayerProps['onRateChange']
 }
 
 /** Signed Cloudflare Stream HLS manifest: the token substitutes for the video uid. */
@@ -24,43 +33,51 @@ export function manifestUrl(token: string): string {
   return `https://${env.streamCustomerDomain}/${token}/manifest/video.m3u8`
 }
 
-export const VideoPlayer = forwardRef<MediaPlayerInstance, VideoPlayerProps>(
-  function VideoPlayer({ token, title, poster, autoPlay = false, startTime = 0, onEnded }, ref) {
-    const innerRef = useRef<MediaPlayerInstance | null>(null)
-    const resumedRef = useRef(false)
+export function VideoPlayer({
+  token,
+  title,
+  poster,
+  autoPlay = false,
+  startTime = 0,
+  onEnded,
+  onTimeUpdate,
+  onPlay,
+  onPause,
+  onSeeking,
+  onRateChange,
+}: VideoPlayerProps) {
+  const innerRef = useRef<MediaPlayerInstance | null>(null)
+  const resumedRef = useRef(false)
 
-    // Assign the instance to both our internal ref and the forwarded ref.
-    const setRef = (instance: MediaPlayerInstance | null) => {
-      innerRef.current = instance
-      if (typeof ref === 'function') ref(instance)
-      else if (ref) ref.current = instance
+  const handleCanPlay = () => {
+    if (resumedRef.current || startTime <= 0) return
+    resumedRef.current = true
+    try {
+      innerRef.current!.currentTime = startTime
+    } catch {
+      // provider not ready; leave at 0
     }
+  }
 
-    const handleCanPlay = () => {
-      if (resumedRef.current || startTime <= 0) return
-      resumedRef.current = true
-      try {
-        innerRef.current!.currentTime = startTime
-      } catch {
-        // provider not ready; leave at 0
-      }
-    }
-
-    return (
-      <MediaPlayer
-        ref={setRef}
-        title={title}
-        src={{ src: manifestUrl(token), type: 'application/x-mpegurl' }}
-        poster={poster}
-        autoPlay={autoPlay}
-        playsInline
-        className="aspect-video w-full overflow-hidden rounded-lg bg-black"
-        onCanPlay={handleCanPlay}
-        onEnded={onEnded}
-      >
-        <MediaProvider />
-        <DefaultVideoLayout icons={defaultLayoutIcons} />
-      </MediaPlayer>
-    )
-  },
-)
+  return (
+    <MediaPlayer
+      ref={innerRef}
+      title={title}
+      src={{ src: manifestUrl(token), type: 'application/x-mpegurl' }}
+      poster={poster}
+      autoPlay={autoPlay}
+      playsInline
+      className="aspect-video w-full overflow-hidden rounded-lg bg-black"
+      onCanPlay={handleCanPlay}
+      onEnded={onEnded}
+      onTimeUpdate={onTimeUpdate}
+      onPlay={onPlay}
+      onPause={onPause}
+      onSeeking={onSeeking}
+      onRateChange={onRateChange}
+    >
+      <MediaProvider />
+      <DefaultVideoLayout icons={defaultLayoutIcons} />
+    </MediaPlayer>
+  )
+}

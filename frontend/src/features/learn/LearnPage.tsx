@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import type { MediaPlayerInstance } from '@vidstack/react'
 import { ArrowLeft, Clapperboard, GraduationCap, Loader2, Lock, VideoOff } from 'lucide-react'
 import { listChapters } from '@/api/chapters'
 import { getCourseMeta } from '@/api/courses'
@@ -30,10 +29,6 @@ export function LearnPage() {
   const status = useAuthStore((s) => s.status)
   const isMentor = user?.role === 'mentor'
   const isAuthed = status === 'authed'
-  // Track the player instance in state (not a ref) so the progress reporter's effect
-  // re-runs when the player actually attaches — even on a cold load where the player mounts
-  // after enrollment/lesson state is ready.
-  const [player, setPlayer] = useState<MediaPlayerInstance | null>(null)
 
   // Enrollment/progress are per-user — only query them for a signed-in, non-mentor viewer.
   // Guests (allowed here for preview lessons) skip these to avoid 401s.
@@ -100,7 +95,7 @@ export function LearnPage() {
 
   // Only enrolled, non-mentor viewers report progress. Preview viewers (guests or
   // logged-in-but-not-enrolled) can watch but must not report — the server would 403 them.
-  useProgressReporter(player, activeLesson?._id ?? null, courseId, hasAccess && !isMentor)
+  const reporter = useProgressReporter(activeLesson?._id ?? null, courseId, hasAccess && !isMentor)
 
   const handleSelect = (lesson: Lesson) => {
     navigate(`/learn/${courseId}/lessons/${lesson._id}`)
@@ -172,12 +167,19 @@ export function LearnPage() {
         <Skeleton className="aspect-video w-full rounded-lg" />
       ) : canWatch && videoReady && playbackQuery.data ? (
         <VideoPlayer
-          ref={setPlayer}
           token={playbackQuery.data.token}
           title={activeLesson?.title ?? ''}
           poster={activeLesson?.thumbnailUrl || undefined}
           startTime={resumeAt}
-          onEnded={handleEnded}
+          onTimeUpdate={reporter.onTimeUpdate}
+          onPlay={reporter.onPlay}
+          onPause={reporter.onPause}
+          onSeeking={reporter.onSeeking}
+          onRateChange={reporter.onRateChange}
+          onEnded={() => {
+            reporter.onEnded()
+            handleEnded()
+          }}
         />
       ) : canWatch && isApiError(playbackQuery.error, 'VIDEO_NOT_READY') ? (
         <div className="bg-muted flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-lg text-center">
