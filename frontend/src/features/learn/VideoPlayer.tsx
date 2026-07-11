@@ -25,7 +25,6 @@ interface VideoPlayerProps {
   onPlay?: MediaPlayerProps['onPlay']
   onPause?: MediaPlayerProps['onPause']
   onSeeking?: MediaPlayerProps['onSeeking']
-  onRateChange?: MediaPlayerProps['onRateChange']
 }
 
 /** Signed Cloudflare Stream HLS manifest: the token substitutes for the video uid. */
@@ -44,7 +43,6 @@ export function VideoPlayer({
   onPlay,
   onPause,
   onSeeking,
-  onRateChange,
 }: VideoPlayerProps) {
   const innerRef = useRef<MediaPlayerInstance | null>(null)
   const resumedRef = useRef(false)
@@ -74,7 +72,6 @@ export function VideoPlayer({
       onPlay={onPlay}
       onPause={onPause}
       onSeeking={onSeeking}
-      onRateChange={onRateChange}
     >
       <MediaProvider />
       <DefaultVideoLayout icons={defaultLayoutIcons} />

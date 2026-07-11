@@ -7,39 +7,41 @@ const COMPLETE_THRESHOLD = 0.9;
 const RECENT_LIMIT = 20;
 
 /**
- * Record progress for a lesson using the "true watch-time" model:
+ * Record progress for a lesson using the "live position" model:
  *
- * - `deltaSeconds` is the amount of NEW time actually played since the last report
- *   (the client ignores seeks/jumps), so watched-time accumulates across pauses and
- *   sessions. The running total is capped at the lesson duration, so a retried/duplicate
- *   report can only over-count harmlessly up to 100%.
- * - `positionSeconds` is the current playback position, stored as the resume bookmark.
+ * - `positionSeconds` is the current playback position. It drives the displayed lesson
+ *   percentage (which therefore tracks the scrub bar and can move backwards on rewind) and
+ *   is stored as the resume bookmark (`lastPositionSeconds`).
+ * - `watchedSeconds` is kept as a monotonic HIGH-WATER mark (furthest position ever reached,
+ *   capped at duration). It powers the course-level progress so the course bar never
+ *   regresses even when a single lesson's live percentage dips.
  *
- * Marks complete once cumulative watch-time reaches ≥90% of the duration.
+ * Completion is sticky: once the position reaches ≥90% of the duration (or the player fires
+ * `ended`, which reports a position at the duration) the lesson stays complete forever.
  */
 export async function recordProgress(
   studentId: string,
   lessonId: string,
-  input: { deltaSeconds: number; positionSeconds: number },
+  input: { positionSeconds: number },
 ): Promise<LessonProgressDoc> {
   const lesson = await getLessonOrThrow(lessonId);
   const duration = lesson.durationSeconds || 0;
-  const delta = Math.max(0, input.deltaSeconds);
 
   const existing = await LessonProgress.findOne({ studentId, lessonId });
-  const nextWatched = (existing?.watchedSeconds ?? 0) + delta;
-  const bestWatched = duration > 0 ? Math.min(nextWatched, duration) : nextWatched;
 
   const position = Math.max(0, duration > 0 ? Math.min(input.positionSeconds, duration) : input.positionSeconds);
-  const percentage = duration > 0 ? Math.min(100, Math.round((bestWatched / duration) * 100)) : 0;
-  const completed = (existing?.completed ?? false) || (duration > 0 && bestWatched / duration >= COMPLETE_THRESHOLD);
+  // High-water mark: never decreases, so the course bar is monotonic.
+  const highWater = duration > 0 ? Math.min(duration, Math.max(existing?.watchedSeconds ?? 0, position)) : Math.max(existing?.watchedSeconds ?? 0, position);
+  // Displayed lesson percentage is LIVE (follows the current position).
+  const percentage = duration > 0 ? Math.min(100, Math.round((position / duration) * 100)) : 0;
+  const completed = (existing?.completed ?? false) || (duration > 0 && position / duration >= COMPLETE_THRESHOLD);
 
   const progress = await LessonProgress.findOneAndUpdate(
     { studentId, lessonId },
     {
       $set: {
         courseId: lesson.courseId,
-        watchedSeconds: bestWatched,
+        watchedSeconds: highWater,
         lastPositionSeconds: position,
         completionPercentage: percentage,
         completed,

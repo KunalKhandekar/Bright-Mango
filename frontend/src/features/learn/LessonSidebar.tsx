@@ -59,10 +59,10 @@ export function LessonSidebar({
                 {chapterLessons.map((lesson) => {
                   const p = progressByLesson.get(lesson._id)
                   const isActive = lesson._id === activeLessonId
-                  // Progress carries the authoritative watched/total seconds; fall back to
-                  // the lesson's own duration when there's no progress row yet.
+                  // Live position drives the displayed %; fall back to the lesson's own
+                  // duration when there's no progress row yet.
                   const duration = p?.durationSeconds || lesson.durationSeconds || 0
-                  const watched = Math.min(p?.watchedSeconds ?? 0, duration || Infinity)
+                  const watched = Math.min(p?.lastPositionSeconds ?? 0, duration || Infinity)
                   const inProgress = !p?.completed && !!p && p.completionPercentage > 0
                   return (
                     <li key={lesson._id}>

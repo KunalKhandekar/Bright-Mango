@@ -4,17 +4,17 @@ import { isApiError } from '@/types/api'
 
 /**
  * Durable, replay-safe queue for progress reports that haven't been acknowledged by the
- * server yet. It exists so a failed request, a browser refresh, or an offline period never
- * loses watch-time.
+ * server yet, so a failed request, a browser refresh, or an offline period never loses the
+ * learner's position.
  *
- * Safety model: `deltaSeconds` is additive and the backend caps `watchedSeconds` at the
- * lesson duration (and completion is sticky), so replaying or duplicating a delta can only
- * over-count harmlessly up to 100%. That makes a persistent accumulator safe to retry.
+ * The report is just the current playback position, and the backend stores it idempotently
+ * (`lastPositionSeconds = position`, high-water `watchedSeconds`, sticky `completed`), so
+ * replaying a queued position is always safe.
  *
  * Storage is `localStorage` (not IndexedDB): payloads are tiny and, critically, the page
- * `unload`/`pagehide` beacon path is synchronous — we must be able to write-before-send
- * without awaiting. All access is wrapped in try/catch so quota/private-mode failures
- * degrade to the in-memory behaviour rather than throwing into the player.
+ * `unload`/`pagehide` beacon path is synchronous — we must write-before-send without
+ * awaiting. All access is wrapped in try/catch so quota/private-mode failures degrade to the
+ * in-memory behaviour rather than throwing into the player.
  */
 
 const STORAGE_KEY = 'bm:progress:pending'
@@ -24,7 +24,6 @@ const BACKOFF_MS = [2_000, 4_000, 8_000, 16_000, 30_000]
 export interface PendingProgress {
   lessonId: string
   courseId: string
-  deltaSeconds: number
   positionSeconds: number
   updatedAt: number
 }
@@ -55,24 +54,17 @@ function writeMap(map: PendingMap): void {
 }
 
 /**
- * Merge a report into the persistent queue. Deltas sum (matching the backend's
- * `watchedSeconds += delta`); the position takes the max so a queued flush never rewinds
- * the resume bookmark. Re-reads before writing so concurrent tabs stay consistent.
+ * Merge a report into the persistent queue. The position takes the max so a queued flush
+ * never rewinds the resume bookmark. Re-reads before writing so concurrent tabs stay
+ * consistent.
  */
-export function enqueue(
-  lessonId: string,
-  courseId: string,
-  deltaSeconds: number,
-  positionSeconds: number,
-): void {
-  const delta = Math.max(0, Math.floor(deltaSeconds))
+export function enqueue(lessonId: string, courseId: string, positionSeconds: number): void {
   const pos = Math.max(0, Math.floor(positionSeconds))
   const map = readMap()
   const existing = map[lessonId]
   map[lessonId] = {
     lessonId,
     courseId,
-    deltaSeconds: (existing?.deltaSeconds ?? 0) + delta,
     positionSeconds: Math.max(existing?.positionSeconds ?? 0, pos),
     updatedAt: Date.now(),
   }
@@ -84,21 +76,17 @@ export function peekAll(): PendingProgress[] {
 }
 
 /**
- * Acknowledge a flushed report by subtracting the amount that was sent. The key is only
- * deleted once fully drained, so deltas accumulated *while the request was in flight*
- * (a concurrent tick that enqueued more) are preserved for the next flush.
+ * Acknowledge a flushed report. Deletes the entry unless a newer position was enqueued while
+ * the request was in flight (a concurrent tick), in which case the remainder is kept.
  */
-export function remove(lessonId: string, ackedDelta: number, ackedPos: number): void {
+export function remove(lessonId: string, ackedPos: number): void {
   const map = readMap()
   const entry = map[lessonId]
   if (!entry) return
-  const remaining = entry.deltaSeconds - Math.max(0, Math.floor(ackedDelta))
-  if (remaining <= 0 && entry.positionSeconds <= ackedPos) {
+  if (entry.positionSeconds <= ackedPos) {
     delete map[lessonId]
-  } else {
-    map[lessonId] = { ...entry, deltaSeconds: Math.max(0, remaining) }
+    writeMap(map)
   }
-  writeMap(map)
 }
 
 function drop(lessonId: string): void {
@@ -136,13 +124,9 @@ export async function flush(): Promise<void> {
     let scheduleRetry = false
 
     for (const entry of peekAll()) {
-      if (entry.deltaSeconds <= 0 && entry.positionSeconds <= 0) {
-        drop(entry.lessonId)
-        continue
-      }
       try {
-        await reportProgress(entry.lessonId, entry.deltaSeconds, entry.positionSeconds)
-        remove(entry.lessonId, entry.deltaSeconds, entry.positionSeconds)
+        await reportProgress(entry.lessonId, entry.positionSeconds)
+        remove(entry.lessonId, entry.positionSeconds)
         touchedCourses.add(entry.courseId)
       } catch (error) {
         if (isPermanentFailure(error)) {

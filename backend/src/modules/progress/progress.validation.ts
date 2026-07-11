@@ -2,7 +2,8 @@ import { body, param } from 'express-validator';
 
 export const recordProgressValidators = [
   param('lessonId').isMongoId(),
-  body('deltaSeconds').isInt({ min: 0 }).withMessage('deltaSeconds must be a non-negative integer'),
+  // deltaSeconds is legacy (position-based model); accepted-but-ignored for rollout safety.
+  body('deltaSeconds').optional().isInt({ min: 0 }).withMessage('deltaSeconds must be a non-negative integer'),
   body('positionSeconds').isInt({ min: 0 }).withMessage('positionSeconds must be a non-negative integer'),
 ];
 

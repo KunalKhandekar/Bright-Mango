@@ -175,7 +175,6 @@ export function LearnPage() {
           onPlay={reporter.onPlay}
           onPause={reporter.onPause}
           onSeeking={reporter.onSeeking}
-          onRateChange={reporter.onRateChange}
           onEnded={() => {
             reporter.onEnded()
             handleEnded()

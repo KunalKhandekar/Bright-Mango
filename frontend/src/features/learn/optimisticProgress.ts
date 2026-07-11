@@ -4,20 +4,19 @@ import type { CourseProgress } from '@/types/models'
 
 // Mirror of backend business rules in `backend/src/modules/progress/progress.service.ts`.
 // The server remains the source of truth (a refetch reconciles every value); this only
-// moves the bar instantly so playback feels responsive. Keep these in lockstep with
-// COMPLETE_THRESHOLD and the duration-weighted percentage formula there.
+// moves the bar instantly so playback feels responsive. Keep in lockstep with
+// COMPLETE_THRESHOLD and the position-based / high-water formulas there.
 const COMPLETE_THRESHOLD = 0.9
 
 /**
- * Optimistically advance the active lesson's watch-time in the cached course progress, then
- * recompute the duration-weighted overall percentage exactly as the backend does. No-op if
- * the query isn't cached yet or the lesson has no known duration (we never fabricate data).
+ * Optimistically set the active lesson's LIVE position in the cached course progress, then
+ * recompute the monotonic (high-water) overall percentage exactly as the backend does. No-op
+ * if the query isn't cached yet or the lesson has no known duration (we never fabricate data).
  */
 export function applyOptimisticProgress(
   queryClient: QueryClient,
   courseId: string,
   lessonId: string,
-  deltaSeconds: number,
   positionSeconds: number,
 ): void {
   queryClient.setQueryData<CourseProgress>(keys.courseProgress(courseId), (prev) => {
@@ -27,19 +26,19 @@ export function applyOptimisticProgress(
       if (l.lessonId !== lessonId) return l
       const duration = l.durationSeconds || 0
       if (duration <= 0) return l
-      const watchedSeconds = Math.min(duration, l.watchedSeconds + Math.max(0, deltaSeconds))
-      const completed = l.completed || watchedSeconds / duration >= COMPLETE_THRESHOLD
+      const position = Math.min(duration, Math.max(0, positionSeconds))
       return {
         ...l,
-        watchedSeconds,
-        // completion is sticky and can only move up
-        completed,
-        completionPercentage: Math.min(100, Math.round((watchedSeconds / duration) * 100)),
-        lastPositionSeconds: Math.max(l.lastPositionSeconds, Math.max(0, positionSeconds)),
+        // Displayed lesson % is live (tracks the scrub bar).
+        completionPercentage: Math.min(100, Math.round((position / duration) * 100)),
+        lastPositionSeconds: position,
+        // watchedSeconds is the monotonic high-water mark; completion is sticky.
+        watchedSeconds: Math.min(duration, Math.max(l.watchedSeconds, position)),
+        completed: l.completed || position / duration >= COMPLETE_THRESHOLD,
       }
     })
 
-    // Duration-weighted overall %: sum(watched, or full duration if completed) / sum(durations).
+    // Course % is high-water: sum(completed ? duration : watchedSeconds) / sum(durations).
     let totalDuration = 0
     let watchedTotal = 0
     for (const l of lessons) {
