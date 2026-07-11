@@ -98,4 +98,6 @@ export const env = {
     signingKeyId: optional('CF_STREAM_SIGNING_KEY_ID', ''),
     signingKeyPem: optional('CF_STREAM_SIGNING_KEY_PEM', ''),
   },
+
+  runInlineWorkers: (process.env.RUN_INLINE_WORKERS ?? 'true') !== 'false',
 } as const;
