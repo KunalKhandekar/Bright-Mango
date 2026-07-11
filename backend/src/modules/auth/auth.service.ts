@@ -52,6 +52,30 @@ async function assertEmailAllowed(email: string): Promise<void> {
   }
 }
 
+/** Normalized set of emails eligible for the master-OTP bypass (empties dropped). */
+function bypassEmails(): Set<string> {
+  return new Set(
+    [env.seedMentorEmail, env.otpBypass.demoStudentEmail]
+      .filter(Boolean)
+      .map((e) => normalizeEmail(e)),
+  );
+}
+
+/** Whether OTP issuance should be skipped for this (already-normalized) email. */
+function isBypassEmail(email: string): boolean {
+  return env.otpBypass.enabled && bypassEmails().has(email);
+}
+
+/** Whether this (email, otp) pair is a valid master-OTP login. */
+function isMasterOtpLogin(email: string, otp: string): boolean {
+  return (
+    env.otpBypass.enabled &&
+    env.otpBypass.masterOtp !== '' &&
+    otp === env.otpBypass.masterOtp &&
+    bypassEmails().has(email)
+  );
+}
+
 // ── OTP request / resend ────────────────────────────────────────────────────────
 
 /**
@@ -61,6 +85,10 @@ async function assertEmailAllowed(email: string): Promise<void> {
 export async function requestOtp(rawEmail: string, _ctx: RequestContext): Promise<{ cooldown: number }> {
   const email = normalizeEmail(rawEmail);
   await assertEmailAllowed(email);
+
+  if (isBypassEmail(email)) {
+    return { cooldown: 0 };
+  }
 
   const cooldownKey = redisKeys.otpCooldown(email);
   if (await redis.exists(cooldownKey)) {
@@ -119,26 +147,31 @@ export async function verifyOtp(
   const email = normalizeEmail(rawEmail);
   await assertEmailAllowed(email);
 
-  const otpKey = redisKeys.otp(email);
-  const raw = await redis.get(otpKey);
-  if (!raw) {
-    throw ApiError.badRequest(ErrorCode.OTP_EXPIRED, 'Code expired or never requested');
-  }
+  const bypass = isMasterOtpLogin(email, otp);
 
-  const record = JSON.parse(raw) as StoredOtp;
-
-  if (!verifyOtpHash(otp, record.otpHash)) {
-    const attempts = record.attempts + 1;
-    if (attempts >= env.otpMaxAttempts) {
-      await redis.del(otpKey);
-      throw ApiError.badRequest(
-        ErrorCode.OTP_MAX_ATTEMPTS,
-        'Too many incorrect attempts. Please request a new code.',
-      );
+  let otpKey = '';
+  if (!bypass) {
+    otpKey = redisKeys.otp(email);
+    const raw = await redis.get(otpKey);
+    if (!raw) {
+      throw ApiError.badRequest(ErrorCode.OTP_EXPIRED, 'Code expired or never requested');
     }
-    // Preserve TTL while bumping the attempt counter.
-    await redis.set(otpKey, JSON.stringify({ ...record, attempts }), 'KEEPTTL');
-    throw ApiError.badRequest(ErrorCode.OTP_INVALID, 'Incorrect code');
+
+    const record = JSON.parse(raw) as StoredOtp;
+
+    if (!verifyOtpHash(otp, record.otpHash)) {
+      const attempts = record.attempts + 1;
+      if (attempts >= env.otpMaxAttempts) {
+        await redis.del(otpKey);
+        throw ApiError.badRequest(
+          ErrorCode.OTP_MAX_ATTEMPTS,
+          'Too many incorrect attempts. Please request a new code.',
+        );
+      }
+      // Preserve TTL while bumping the attempt counter.
+      await redis.set(otpKey, JSON.stringify({ ...record, attempts }), 'KEEPTTL');
+      throw ApiError.badRequest(ErrorCode.OTP_INVALID, 'Incorrect code');
+    }
   }
 
   // Resolve mentor + student account.
@@ -166,8 +199,8 @@ export async function verifyOtp(
     return { kind: 'session_limit', activeSessions };
   }
 
-  // Login succeeds — consume the OTP now to prevent replay.
-  await redis.del(otpKey);
+  // Login succeeds — consume the OTP now to prevent replay (no-op for the bypass path).
+  if (!bypass && otpKey) await redis.del(otpKey);
 
   const session = await createSession(user._id, user.role, ctx);
   await markLoggedIn(user._id);

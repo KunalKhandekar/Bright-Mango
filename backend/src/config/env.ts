@@ -28,6 +28,12 @@ function int(key: string, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+function bool(key: string, fallback: boolean): boolean {
+  const value = process.env[key];
+  if (value === undefined || value === '') return fallback;
+  return value === 'true' || value === '1';
+}
+
 function list(key: string): string[] {
   const value = process.env[key];
   if (!value) return [];
@@ -66,6 +72,12 @@ export const env = {
 
   seedMentorEmail: optional('SEED_MENTOR_EMAIL', 'mentor@brightmango.in'),
   seedMentorName: optional('SEED_MENTOR_NAME', 'BrightMango Mentor'),
+
+  otpBypass: {
+    enabled: bool('MENTOR_OTP_BYPASS_ENABLED', false),
+    masterOtp: optional('MENTOR_MASTER_OTP', ''),
+    demoStudentEmail: optional('DEMO_STUDENT_EMAIL', ''),
+  },
 
   mail: {
     from: optional(

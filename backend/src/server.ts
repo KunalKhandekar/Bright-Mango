@@ -14,6 +14,12 @@ async function bootstrap(): Promise<void> {
   // const workers: Worker[] = startWorkers();
   const workers: Worker[] = env.runInlineWorkers ? startWorkers() : [];
 
+  if (env.otpBypass.enabled) {
+    logger.warn(
+      '[SECURITY] Master OTP bypass ENABLED — evaluation only. Disable after submission.',
+    );
+  }
+
   const server: Server = app.listen(env.port, () => {
     logger.info(`[server] listening on :${env.port}${env.apiPrefix} (${env.nodeEnv})`);
   });
