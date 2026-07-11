@@ -171,6 +171,7 @@ export interface LessonProgress {
   courseId: string
   lessonId: string
   watchedSeconds: number
+  lastPositionSeconds: number
   completed: boolean
   completionPercentage: number
   lastWatchedAt: string
@@ -184,6 +185,7 @@ export interface CourseProgress {
     lessonId: string
     completionPercentage: number
     completed: boolean
+    lastPositionSeconds: number
   }>
 }
 

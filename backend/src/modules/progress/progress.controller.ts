@@ -3,11 +3,10 @@ import { ApiResponse } from '../../common/http/ApiResponse.js';
 import * as progressService from './progress.service.js';
 
 export async function record(req: Request, res: Response): Promise<Response> {
-  const progress = await progressService.recordProgress(
-    req.auth!.userId,
-    req.params.lessonId,
-    Number(req.body.watchedSeconds),
-  );
+  const progress = await progressService.recordProgress(req.auth!.userId, req.params.lessonId, {
+    deltaSeconds: Number(req.body.deltaSeconds),
+    positionSeconds: Number(req.body.positionSeconds),
+  });
   return ApiResponse.ok(res, 'Progress saved', { progress });
 }
 

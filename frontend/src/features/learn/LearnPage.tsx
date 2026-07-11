@@ -128,6 +128,20 @@ export function LearnPage() {
     )
   }
 
+  // Progress is an enrolled-only feature — hide it entirely for preview/non-enrolled viewers.
+  const overallProgress = hasAccess ? progressQuery.data : undefined
+
+  // Resume the active lesson where the student left off — unless it's finished or
+  // essentially watched to the end.
+  const activeProgress = overallProgress?.lessons.find((l) => l.lessonId === activeLesson?._id)
+  const resumeAt =
+    activeProgress &&
+    !activeProgress.completed &&
+    activeLesson?.durationSeconds &&
+    activeProgress.lastPositionSeconds < activeLesson.durationSeconds * 0.95
+      ? activeProgress.lastPositionSeconds
+      : 0
+
   const playerArea = (
     <div className="space-y-4">
       {loading || (canWatch && hasVideo && playbackQuery.isPending) ? (
@@ -138,6 +152,7 @@ export function LearnPage() {
           token={playbackQuery.data.token}
           title={activeLesson?.title ?? ''}
           poster={activeLesson?.thumbnailUrl || undefined}
+          startTime={resumeAt}
           onEnded={handleEnded}
         />
       ) : canWatch && isApiError(playbackQuery.error, 'VIDEO_NOT_READY') ? (
@@ -174,9 +189,6 @@ export function LearnPage() {
       )}
     </div>
   )
-
-  // Progress is an enrolled-only feature — hide it entirely for preview/non-enrolled viewers.
-  const overallProgress = hasAccess ? progressQuery.data : undefined
 
   return (
     <div className="bg-background min-h-svh">

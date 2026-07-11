@@ -7,20 +7,30 @@ const COMPLETE_THRESHOLD = 0.9;
 const RECENT_LIMIT = 20;
 
 /**
- * Record progress for a lesson. `watchedSeconds` is clamped to the lesson duration and
- * progress is monotonic (seeking back never lowers it). Marks complete at ≥90%.
+ * Record progress for a lesson using the "true watch-time" model:
+ *
+ * - `deltaSeconds` is the amount of NEW time actually played since the last report
+ *   (the client ignores seeks/jumps), so watched-time accumulates across pauses and
+ *   sessions. The running total is capped at the lesson duration, so a retried/duplicate
+ *   report can only over-count harmlessly up to 100%.
+ * - `positionSeconds` is the current playback position, stored as the resume bookmark.
+ *
+ * Marks complete once cumulative watch-time reaches ≥90% of the duration.
  */
 export async function recordProgress(
   studentId: string,
   lessonId: string,
-  watchedSeconds: number,
+  input: { deltaSeconds: number; positionSeconds: number },
 ): Promise<LessonProgressDoc> {
   const lesson = await getLessonOrThrow(lessonId);
   const duration = lesson.durationSeconds || 0;
-  const clamped = duration > 0 ? Math.min(Math.max(0, watchedSeconds), duration) : Math.max(0, watchedSeconds);
+  const delta = Math.max(0, input.deltaSeconds);
 
   const existing = await LessonProgress.findOne({ studentId, lessonId });
-  const bestWatched = Math.max(existing?.watchedSeconds ?? 0, clamped);
+  const nextWatched = (existing?.watchedSeconds ?? 0) + delta;
+  const bestWatched = duration > 0 ? Math.min(nextWatched, duration) : nextWatched;
+
+  const position = Math.max(0, duration > 0 ? Math.min(input.positionSeconds, duration) : input.positionSeconds);
   const percentage = duration > 0 ? Math.min(100, Math.round((bestWatched / duration) * 100)) : 0;
   const completed = (existing?.completed ?? false) || (duration > 0 && bestWatched / duration >= COMPLETE_THRESHOLD);
 
@@ -30,6 +40,7 @@ export async function recordProgress(
       $set: {
         courseId: lesson.courseId,
         watchedSeconds: bestWatched,
+        lastPositionSeconds: position,
         completionPercentage: percentage,
         completed,
         lastWatchedAt: new Date(),
@@ -64,7 +75,12 @@ export interface CourseProgress {
   totalLessons: number;
   completedLessons: number;
   percentage: number;
-  lessons: Array<{ lessonId: string; completionPercentage: number; completed: boolean }>;
+  lessons: Array<{
+    lessonId: string;
+    completionPercentage: number;
+    completed: boolean;
+    lastPositionSeconds: number;
+  }>;
 }
 
 export async function getCourseProgress(studentId: string, courseId: string): Promise<CourseProgress> {
@@ -73,10 +89,11 @@ export async function getCourseProgress(studentId: string, courseId: string): Pr
     LessonProgress.find({ studentId, courseId }).lean<LessonProgressDoc[]>(),
   ]);
 
-  const watchedByLesson = new Map(progresses.map((p) => [p.lessonId.toString(), p.watchedSeconds]));
+  const byLesson = new Map(progresses.map((p) => [p.lessonId.toString(), p]));
 
   // Overall progress is duration-based: watched seconds / total course duration.
-  // Lessons that are still encoding (durationSeconds === 0) are excluded from the
+  // A completed lesson counts as its full duration (so finishing every lesson reaches
+  // 100%). Lessons still encoding (durationSeconds === 0) are excluded from the
   // denominator so they don't cap the percentage below 100%.
   let totalDuration = 0;
   let watchedTotal = 0;
@@ -84,7 +101,8 @@ export async function getCourseProgress(studentId: string, courseId: string): Pr
     const duration = lesson.durationSeconds || 0;
     if (duration <= 0) continue;
     totalDuration += duration;
-    watchedTotal += Math.min(watchedByLesson.get(String(lesson._id)) ?? 0, duration);
+    const p = byLesson.get(String(lesson._id));
+    watchedTotal += p?.completed ? duration : Math.min(p?.watchedSeconds ?? 0, duration);
   }
 
   return {
@@ -95,6 +113,7 @@ export async function getCourseProgress(studentId: string, courseId: string): Pr
       lessonId: p.lessonId.toString(),
       completionPercentage: p.completionPercentage,
       completed: p.completed,
+      lastPositionSeconds: p.lastPositionSeconds ?? 0,
     })),
   };
 }
