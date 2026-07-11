@@ -179,6 +179,7 @@ export interface LessonProgress {
 
 export interface CourseProgress {
   totalLessons: number
+  playableLessons: number
   completedLessons: number
   percentage: number
   lessons: Array<{
@@ -186,6 +187,8 @@ export interface CourseProgress {
     completionPercentage: number
     completed: boolean
     lastPositionSeconds: number
+    watchedSeconds: number
+    durationSeconds: number
   }>
 }
 

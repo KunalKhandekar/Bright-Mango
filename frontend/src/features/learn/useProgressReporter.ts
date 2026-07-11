@@ -3,6 +3,8 @@ import type { MediaPlayerInstance } from '@vidstack/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { reportProgress, reportProgressBeacon } from '@/api/progress'
 import { keys } from '@/lib/query-client'
+import { enqueue, flush, startAutoFlush } from '@/features/learn/progressQueue'
+import { applyOptimisticProgress } from '@/features/learn/optimisticProgress'
 
 const REPORT_INTERVAL_MS = 15_000 // server rate limit is 5/10s per lesson; stay well under
 // Base gap (at 1x) between two time-update ticks that still counts as continuous
@@ -30,6 +32,13 @@ export function useProgressReporter(
   enabled: boolean,
 ) {
   const queryClient = useQueryClient()
+
+  // Drain progress left un-acked by a prior crash / offline period, and whenever
+  // connectivity is restored. Only for viewers who actually report (enrolled, non-mentor).
+  useEffect(() => {
+    if (!enabled) return
+    return startAutoFlush()
+  }, [enabled])
 
   const unsentWatchedRef = useRef(0) // watch-time (s) accumulated but not yet sent
   const lastTickPosRef = useRef(0) // last currentTime seen, for delta computation
@@ -60,11 +69,17 @@ export function useProgressReporter(
       if (delta <= 0 && pos === lastSentPosRef.current) return
 
       // Reserve the delta up front so overlapping flushes can't send the same seconds
-      // twice; restore it only if the request fails so the next tick retries.
+      // twice; restore it (via the durable queue) only if the request fails.
       unsentWatchedRef.current -= delta
       lastSentPosRef.current = pos
 
+      // Move the local progress bar immediately; the server refetch reconciles it.
+      applyOptimisticProgress(queryClient, courseId, lessonId, delta, pos)
+
       if (useBeacon) {
+        // Persist before firing: a keepalive fetch has no observable completion, so the
+        // durable entry (cleared by the next successful ack) is what guarantees delivery.
+        enqueue(lessonId, courseId, delta, pos)
         reportProgressBeacon(lessonId, delta, pos)
         return
       }
@@ -72,9 +87,14 @@ export function useProgressReporter(
       void reportProgress(lessonId, delta, pos)
         .then(() => {
           void queryClient.invalidateQueries({ queryKey: keys.courseProgress(courseId) })
+          // Opportunistically drain anything a prior beacon/failure left queued (beacons
+          // have no ack, so their durable entries linger until a real request cleans them).
+          void flush()
         })
         .catch(() => {
-          unsentWatchedRef.current += delta
+          // Spill to durable storage instead of an in-memory ref so the delta survives a
+          // reload/offline period; startAutoFlush drains it on reconnect.
+          enqueue(lessonId, courseId, delta, pos)
         })
     }
 

@@ -59,36 +59,61 @@ export function LessonSidebar({
                 {chapterLessons.map((lesson) => {
                   const p = progressByLesson.get(lesson._id)
                   const isActive = lesson._id === activeLessonId
+                  // Progress carries the authoritative watched/total seconds; fall back to
+                  // the lesson's own duration when there's no progress row yet.
+                  const duration = p?.durationSeconds || lesson.durationSeconds || 0
+                  const watched = Math.min(p?.watchedSeconds ?? 0, duration || Infinity)
+                  const inProgress = !p?.completed && !!p && p.completionPercentage > 0
                   return (
                     <li key={lesson._id}>
                       <button
                         type="button"
                         onClick={() => onSelect(lesson)}
                         className={cn(
-                          'flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left text-sm transition-colors',
+                          'flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left text-sm transition-colors',
                           isActive
                             ? 'bg-accent text-accent-foreground'
                             : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground',
                         )}
                       >
                         {p?.completed ? (
-                          <CheckCircle2 className="size-4 shrink-0 text-green-600 dark:text-green-500" />
+                          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600 dark:text-green-500" />
                         ) : isActive ? (
-                          <PlayCircle className="text-primary size-4 shrink-0" />
+                          <PlayCircle className="text-primary mt-0.5 size-4 shrink-0" />
                         ) : (
-                          <Circle className="size-4 shrink-0 opacity-40" />
+                          <Circle className="mt-0.5 size-4 shrink-0 opacity-40" />
                         )}
-                        <span className="min-w-0 flex-1 truncate">{lesson.title}</span>
-                        {!p?.completed && p && p.completionPercentage > 0 ? (
-                          <span className="text-primary text-xs font-medium tabular-nums">
-                            {p.completionPercentage}%
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate">{lesson.title}</span>
+                            {p?.completed ? (
+                              <span className="text-xs font-medium text-green-600 dark:text-green-500">
+                                Completed
+                              </span>
+                            ) : inProgress ? (
+                              <span className="text-primary text-xs font-medium tabular-nums">
+                                {p.completionPercentage}%
+                              </span>
+                            ) : duration ? (
+                              <span className="text-xs tabular-nums opacity-70">
+                                {formatDuration(duration)}
+                              </span>
+                            ) : null}
                           </span>
-                        ) : null}
-                        {lesson.durationSeconds ? (
-                          <span className="text-xs tabular-nums opacity-70">
-                            {formatDuration(lesson.durationSeconds)}
-                          </span>
-                        ) : null}
+                          {inProgress && duration ? (
+                            <span className="mt-1.5 flex items-center gap-2">
+                              <span className="bg-muted h-1 min-w-0 flex-1 overflow-hidden rounded-full">
+                                <span
+                                  className="bg-primary block h-full rounded-full"
+                                  style={{ width: `${p.completionPercentage}%` }}
+                                />
+                              </span>
+                              <span className="text-muted-foreground shrink-0 text-[10px] tabular-nums">
+                                {formatDuration(watched)} / {formatDuration(duration)}
+                              </span>
+                            </span>
+                          ) : null}
+                        </span>
                       </button>
                     </li>
                   )

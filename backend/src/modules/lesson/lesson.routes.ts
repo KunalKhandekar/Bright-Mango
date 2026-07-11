@@ -22,7 +22,12 @@ const enrollmentForLesson = requireEnrollment(async (req) => {
   return lesson.courseId.toString();
 });
 
-/** Preview lessons are watchable without enrollment; otherwise enforce enrollment. */
+/**
+ * Preview lessons are watchable by anyone (including logged-out guests) so they can act as
+ * a public sample; every other lesson requires enrollment. `requireEnrollment` already
+ * rejects unauthenticated callers with 401, so a guest hitting a non-preview lesson is
+ * handled there.
+ */
 async function playbackGate(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const lesson = await getLessonOrThrow(req.params.id);
@@ -43,7 +48,7 @@ router.delete('/lessons/:id', ...manage, validate(lessonIdParam), asyncHandler(c
 // Course curriculum (public for published courses; owner-only for drafts)
 router.get('/courses/:courseId/lessons', authenticateOptional, asyncHandler(ctrl.listByCourse));
 
-// Student playback (enrollment-gated, preview-exempt)
-router.get('/lessons/:id/playback', authenticate, validate(lessonIdParam), playbackGate, asyncHandler(ctrl.playback));
+// Playback: preview lessons are public (optional auth), others are enrollment-gated.
+router.get('/lessons/:id/playback', authenticateOptional, validate(lessonIdParam), playbackGate, asyncHandler(ctrl.playback));
 
 export default router;

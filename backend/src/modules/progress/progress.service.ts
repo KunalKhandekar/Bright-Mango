@@ -73,6 +73,7 @@ async function touchRecentlyWatched(studentId: string, lessonId: string, courseI
 
 export interface CourseProgress {
   totalLessons: number;
+  playableLessons: number;
   completedLessons: number;
   percentage: number;
   lessons: Array<{
@@ -80,6 +81,8 @@ export interface CourseProgress {
     completionPercentage: number;
     completed: boolean;
     lastPositionSeconds: number;
+    watchedSeconds: number;
+    durationSeconds: number;
   }>;
 }
 
@@ -90,6 +93,7 @@ export async function getCourseProgress(studentId: string, courseId: string): Pr
   ]);
 
   const byLesson = new Map(progresses.map((p) => [p.lessonId.toString(), p]));
+  const durationById = new Map(lessons.map((l) => [String(l._id), l.durationSeconds || 0]));
 
   // Overall progress is duration-based: watched seconds / total course duration.
   // A completed lesson counts as its full duration (so finishing every lesson reaches
@@ -97,9 +101,11 @@ export async function getCourseProgress(studentId: string, courseId: string): Pr
   // denominator so they don't cap the percentage below 100%.
   let totalDuration = 0;
   let watchedTotal = 0;
+  let playableLessons = 0;
   for (const lesson of lessons) {
     const duration = lesson.durationSeconds || 0;
     if (duration <= 0) continue;
+    playableLessons += 1;
     totalDuration += duration;
     const p = byLesson.get(String(lesson._id));
     watchedTotal += p?.completed ? duration : Math.min(p?.watchedSeconds ?? 0, duration);
@@ -107,14 +113,20 @@ export async function getCourseProgress(studentId: string, courseId: string): Pr
 
   return {
     totalLessons: lessons.length,
+    playableLessons,
     completedLessons: progresses.filter((p) => p.completed).length,
     percentage: totalDuration > 0 ? Math.min(100, Math.round((watchedTotal / totalDuration) * 100)) : 0,
-    lessons: progresses.map((p) => ({
-      lessonId: p.lessonId.toString(),
-      completionPercentage: p.completionPercentage,
-      completed: p.completed,
-      lastPositionSeconds: p.lastPositionSeconds ?? 0,
-    })),
+    lessons: progresses.map((p) => {
+      const duration = durationById.get(p.lessonId.toString()) ?? 0;
+      return {
+        lessonId: p.lessonId.toString(),
+        completionPercentage: p.completionPercentage,
+        completed: p.completed,
+        lastPositionSeconds: p.lastPositionSeconds ?? 0,
+        watchedSeconds: duration > 0 ? Math.min(p.watchedSeconds ?? 0, duration) : (p.watchedSeconds ?? 0),
+        durationSeconds: duration,
+      };
+    }),
   };
 }
 

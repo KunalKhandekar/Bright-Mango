@@ -27,13 +27,17 @@ export function LearnPage() {
   const { courseId = '', lessonId } = useParams()
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
+  const status = useAuthStore((s) => s.status)
   const isMentor = user?.role === 'mentor'
+  const isAuthed = status === 'authed'
   const playerRef = useRef<MediaPlayerInstance>(null)
 
+  // Enrollment/progress are per-user — only query them for a signed-in, non-mentor viewer.
+  // Guests (allowed here for preview lessons) skip these to avoid 401s.
   const accessQuery = useQuery({
     queryKey: keys.enrollmentAccess(courseId),
     queryFn: () => getMyEnrollmentForCourse(courseId),
-    enabled: !isMentor,
+    enabled: !isMentor && isAuthed,
   })
   const courseQuery = useQuery({
     queryKey: keys.courseMeta(courseId),
@@ -51,7 +55,7 @@ export function LearnPage() {
   const progressQuery = useQuery({
     queryKey: keys.courseProgress(courseId),
     queryFn: () => getCourseProgress(courseId),
-    enabled: !isMentor,
+    enabled: !isMentor && isAuthed,
   })
 
   const chapters = useMemo(() => chaptersQuery.data?.chapters ?? [], [chaptersQuery.data])
@@ -66,7 +70,7 @@ export function LearnPage() {
     })
   }, [lessonsQuery.data, chapters])
 
-  const hasAccess = isMentor || (accessQuery.data?.hasAccess ?? false)
+  const hasAccess = isMentor || (isAuthed && (accessQuery.data?.hasAccess ?? false))
   const activeLesson = lessons.find((l) => l._id === lessonId) ?? null
 
   // No lesson in the URL → jump to the first one.
@@ -91,7 +95,9 @@ export function LearnPage() {
       isApiError(query.state.error, 'VIDEO_NOT_READY') ? 10_000 : false,
   })
 
-  useProgressReporter(playerRef, activeLesson?._id ?? null, courseId, canWatch && !isMentor)
+  // Only enrolled, non-mentor viewers report progress. Preview viewers (guests or
+  // logged-in-but-not-enrolled) can watch but must not report — the server would 403 them.
+  useProgressReporter(playerRef, activeLesson?._id ?? null, courseId, hasAccess && !isMentor)
 
   const handleSelect = (lesson: Lesson) => {
     navigate(`/learn/${courseId}/lessons/${lesson._id}`)
@@ -103,26 +109,41 @@ export function LearnPage() {
     if (next && (hasAccess || next.isPreview)) handleSelect(next)
   }
 
-  const loading = chaptersQuery.isPending || lessonsQuery.isPending || accessQuery.isLoading
+  const loading =
+    status === 'loading' ||
+    chaptersQuery.isPending ||
+    lessonsQuery.isPending ||
+    accessQuery.isLoading
 
-  // ── Enroll interstitial ────────────────────────────────────────────────────
+  // ── Enroll / login interstitial ────────────────────────────────────────────
   if (!loading && !hasAccess && activeLesson && !activeLesson.isPreview) {
+    const loginNext = encodeURIComponent(`/learn/${courseId}/lessons/${activeLesson._id}`)
     return (
       <div className="flex min-h-svh flex-col items-center justify-center gap-4 p-6 text-center">
         <div className="bg-muted flex size-14 items-center justify-center rounded-full">
           <Lock className="text-muted-foreground size-6" />
         </div>
-        <h1 className="text-xl font-semibold">Enroll to continue</h1>
+        <h1 className="text-xl font-semibold">
+          {isAuthed ? 'Enroll to continue' : 'Sign in to continue'}
+        </h1>
         <p className="text-muted-foreground max-w-sm text-sm">
-          This lesson is part of the paid course. Enroll to unlock the full curriculum.
+          {isAuthed
+            ? 'This lesson is part of the paid course. Enroll to unlock the full curriculum.'
+            : 'This lesson is part of the paid course. Sign in and enroll to unlock the full curriculum.'}
         </p>
         <div className="flex gap-3">
           <Button variant="outline" onClick={() => navigate(-1)}>
             Go back
           </Button>
-          <Button asChild>
-            <Link to="/">Browse courses</Link>
-          </Button>
+          {isAuthed ? (
+            <Button asChild>
+              <Link to="/">Browse courses</Link>
+            </Button>
+          ) : (
+            <Button asChild>
+              <Link to={`/login?next=${loginNext}`}>Sign in</Link>
+            </Button>
+          )}
         </div>
       </div>
     )
@@ -207,7 +228,7 @@ export function LearnPage() {
         {overallProgress && overallProgress.totalLessons > 0 && (
           <div className="ml-auto flex items-center gap-3">
             <span className="text-muted-foreground hidden text-xs sm:inline">
-              {overallProgress.completedLessons}/{overallProgress.totalLessons} lessons ·{' '}
+              {overallProgress.completedLessons}/{overallProgress.playableLessons} lessons ·{' '}
               {Math.round(overallProgress.percentage)}%
             </span>
             <Progress value={overallProgress.percentage} className="w-24 sm:w-36" />
@@ -223,7 +244,8 @@ export function LearnPage() {
         <div className="hidden gap-8 lg:grid lg:grid-cols-[1fr_360px]">
           <div className="min-w-0 space-y-8">
             {playerArea}
-            {activeLesson && canWatch && (
+            {/* Resources & discussion are enrolled-only (no preview exemption on the server). */}
+            {activeLesson && hasAccess && (
               <div className="space-y-6">
                 <section>
                   <h2 className="mb-3 text-base font-medium">Resources</h2>
@@ -251,16 +273,17 @@ export function LearnPage() {
 
         <div className="space-y-4 lg:hidden">
           {playerArea}
-          {/* On mobile, default to the discussion when the user can watch; otherwise lessons. */}
-          <Tabs defaultValue={canWatch ? 'comments' : 'lessons'}>
+          {/* On mobile, default to the discussion for enrolled viewers; otherwise lessons.
+              Resources & comments are enrolled-only. */}
+          <Tabs defaultValue={hasAccess ? 'comments' : 'lessons'}>
             <TabsList className="w-full">
-              <TabsTrigger value="comments" className="flex-1" disabled={!canWatch}>
+              <TabsTrigger value="comments" className="flex-1" disabled={!hasAccess}>
                 Comments
               </TabsTrigger>
               <TabsTrigger value="lessons" className="flex-1">
                 Lessons
               </TabsTrigger>
-              <TabsTrigger value="resources" className="flex-1" disabled={!canWatch}>
+              <TabsTrigger value="resources" className="flex-1" disabled={!hasAccess}>
                 Resources
               </TabsTrigger>
             </TabsList>
@@ -274,10 +297,10 @@ export function LearnPage() {
               />
             </TabsContent>
             <TabsContent value="resources">
-              {activeLesson && canWatch && <ResourceList lessonId={activeLesson._id} />}
+              {activeLesson && hasAccess && <ResourceList lessonId={activeLesson._id} />}
             </TabsContent>
             <TabsContent value="comments">
-              {activeLesson && canWatch && <CommentsPanel lessonId={activeLesson._id} />}
+              {activeLesson && hasAccess && <CommentsPanel lessonId={activeLesson._id} />}
             </TabsContent>
           </Tabs>
         </div>

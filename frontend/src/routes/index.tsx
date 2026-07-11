@@ -47,13 +47,10 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  {
-    element: <RequireAuth />,
-    children: [
-      { path: '/learn/:courseId', element: <LearnPage /> },
-      { path: '/learn/:courseId/lessons/:lessonId', element: <LearnPage /> },
-    ],
-  },
+  // Public: LearnPage gates internally — guests may watch preview lessons and are shown a
+  // login/enroll interstitial for everything else.
+  { path: '/learn/:courseId', element: <LearnPage /> },
+  { path: '/learn/:courseId/lessons/:lessonId', element: <LearnPage /> },
   {
     element: <RequireMentor />,
     children: [
