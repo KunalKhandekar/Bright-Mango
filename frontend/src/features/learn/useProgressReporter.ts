@@ -8,9 +8,8 @@ import { applyOptimisticProgress } from '@/features/learn/optimisticProgress'
 const REPORT_INTERVAL_MS = 15_000 // server rate limit is 5/10s per lesson; stay well under
 
 /**
- * Event handlers wired onto <MediaPlayer> (via VideoPlayer). We use Vidstack's React
- * event-callback props — NOT the imperative `player.listen(...)`, which is scope-bound and
- * silently fails to deliver when called from a React effect.
+ * Event handlers wired onto <MediaPlayer> (via VideoPlayer) using Vidstack's React
+ * event-callback props.
  */
 export interface ProgressHandlers {
   onTimeUpdate: (detail: { currentTime: number }) => void

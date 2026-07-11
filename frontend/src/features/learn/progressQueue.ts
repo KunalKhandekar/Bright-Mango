@@ -21,7 +21,7 @@ const STORAGE_KEY = 'bm:progress:pending'
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000 // drop entries older than a week on load
 const BACKOFF_MS = [2_000, 4_000, 8_000, 16_000, 30_000]
 
-export interface PendingProgress {
+interface PendingProgress {
   lessonId: string
   courseId: string
   positionSeconds: number
@@ -71,7 +71,7 @@ export function enqueue(lessonId: string, courseId: string, positionSeconds: num
   writeMap(map)
 }
 
-export function peekAll(): PendingProgress[] {
+function peekAll(): PendingProgress[] {
   return Object.values(readMap())
 }
 
@@ -79,7 +79,7 @@ export function peekAll(): PendingProgress[] {
  * Acknowledge a flushed report. Deletes the entry unless a newer position was enqueued while
  * the request was in flight (a concurrent tick), in which case the remainder is kept.
  */
-export function remove(lessonId: string, ackedPos: number): void {
+function remove(lessonId: string, ackedPos: number): void {
   const map = readMap()
   const entry = map[lessonId]
   if (!entry) return

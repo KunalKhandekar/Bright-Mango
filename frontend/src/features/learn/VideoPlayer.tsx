@@ -28,7 +28,7 @@ interface VideoPlayerProps {
 }
 
 /** Signed Cloudflare Stream HLS manifest: the token substitutes for the video uid. */
-export function manifestUrl(token: string): string {
+function manifestUrl(token: string): string {
   return `https://${env.streamCustomerDomain}/${token}/manifest/video.m3u8`
 }
 

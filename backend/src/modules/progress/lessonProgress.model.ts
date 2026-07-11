@@ -6,7 +6,8 @@ const lessonProgressSchema = new Schema(
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
     lessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', required: true },
 
-    // Cumulative true watch-time (seconds actually played), capped at lesson duration.
+    // High-water mark: the furthest playback position ever reached, capped at lesson
+    // duration. Powers the monotonic course-progress bar.
     watchedSeconds: { type: Number, default: 0 },
     // Resume bookmark: the latest playback position the student was at.
     lastPositionSeconds: { type: Number, default: 0 },
