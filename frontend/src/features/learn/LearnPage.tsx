@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import type { MediaPlayerInstance } from '@vidstack/react'
@@ -30,7 +30,10 @@ export function LearnPage() {
   const status = useAuthStore((s) => s.status)
   const isMentor = user?.role === 'mentor'
   const isAuthed = status === 'authed'
-  const playerRef = useRef<MediaPlayerInstance>(null)
+  // Track the player instance in state (not a ref) so the progress reporter's effect
+  // re-runs when the player actually attaches — even on a cold load where the player mounts
+  // after enrollment/lesson state is ready.
+  const [player, setPlayer] = useState<MediaPlayerInstance | null>(null)
 
   // Enrollment/progress are per-user — only query them for a signed-in, non-mentor viewer.
   // Guests (allowed here for preview lessons) skip these to avoid 401s.
@@ -97,7 +100,7 @@ export function LearnPage() {
 
   // Only enrolled, non-mentor viewers report progress. Preview viewers (guests or
   // logged-in-but-not-enrolled) can watch but must not report — the server would 403 them.
-  useProgressReporter(playerRef, activeLesson?._id ?? null, courseId, hasAccess && !isMentor)
+  useProgressReporter(player, activeLesson?._id ?? null, courseId, hasAccess && !isMentor)
 
   const handleSelect = (lesson: Lesson) => {
     navigate(`/learn/${courseId}/lessons/${lesson._id}`)
@@ -169,7 +172,7 @@ export function LearnPage() {
         <Skeleton className="aspect-video w-full rounded-lg" />
       ) : canWatch && videoReady && playbackQuery.data ? (
         <VideoPlayer
-          ref={playerRef}
+          ref={setPlayer}
           token={playbackQuery.data.token}
           title={activeLesson?.title ?? ''}
           poster={activeLesson?.thumbnailUrl || undefined}

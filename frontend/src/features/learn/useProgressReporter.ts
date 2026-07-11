@@ -26,7 +26,7 @@ const BASE_STEP_SECONDS = 2
  * destroyed during React effect cleanup.
  */
 export function useProgressReporter(
-  player: React.RefObject<MediaPlayerInstance | null>,
+  player: MediaPlayerInstance | null,
   lessonId: string | null,
   courseId: string,
   enabled: boolean,
@@ -46,7 +46,10 @@ export function useProgressReporter(
   const lastSentPosRef = useRef(-1) // avoid no-op sends
 
   useEffect(() => {
-    if (!enabled || !lessonId) return
+    // Wait for the actual player instance — the effect re-runs when it attaches (player is
+    // state, not a ref), so listeners are wired up even on a cold load where the player
+    // mounts after `enabled`/`lessonId` are already set.
+    if (!enabled || !lessonId || !player) return
 
     unsentWatchedRef.current = 0
     lastTickPosRef.current = 0
@@ -98,11 +101,11 @@ export function useProgressReporter(
         })
     }
 
-    const media = player.current
+    const media = player
 
     // Accumulate real play-time. A tick within MAX_STEP of the previous position is
     // continuous playback; anything else is a seek/rewind and is not counted.
-    const unsubTime = media?.listen('time-update', () => {
+    const unsubTime = media.listen('time-update', () => {
       const t = getCurrentTime(media)
       if (t === null) return
       const dt = t - lastTickPosRef.current
@@ -123,7 +126,7 @@ export function useProgressReporter(
     })
 
     // A seek must not count as watched: resync the baseline, then flush what we have.
-    const unsubSeeking = media?.listen('seeking', () => {
+    const unsubSeeking = media.listen('seeking', () => {
       const t = getCurrentTime(media)
       if (t !== null) {
         lastTickPosRef.current = t
@@ -132,13 +135,13 @@ export function useProgressReporter(
       send(false)
     })
 
-    const unsubPause = media?.listen('pause', () => {
+    const unsubPause = media.listen('pause', () => {
       const t = getCurrentTime(media)
       if (t !== null) positionRef.current = t
       send(false)
     })
 
-    const unsubEnd = media?.listen('ended', () => {
+    const unsubEnd = media.listen('ended', () => {
       try {
         const duration = media.duration
         if (Number.isFinite(duration) && duration > 0) positionRef.current = duration
@@ -150,10 +153,8 @@ export function useProgressReporter(
 
     // Heartbeat while playing.
     const interval = window.setInterval(() => {
-      const current = player.current
-      if (!current) return
       try {
-        if (current.paused) return
+        if (media.paused) return
         send(false)
       } catch {
         // provider mid-teardown
