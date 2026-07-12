@@ -49,6 +49,9 @@
 }
 
 :root {
+    color-scheme: light;
+    --scrollbar-thumb: oklch(0.83 0 0);
+    --scrollbar-thumb-hover: oklch(0.7 0 0);
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);
@@ -85,6 +88,9 @@
 }
 
 .dark {
+    color-scheme: dark;
+    --scrollbar-thumb: oklch(0.37 0 0);
+    --scrollbar-thumb-hover: oklch(0.5 0 0);
     --background: oklch(0.145 0 0);
     --foreground: oklch(0.985 0 0);
     --card: oklch(0.205 0 0);
@@ -128,5 +134,29 @@
     }
   html {
     @apply font-sans;
+    }
+
+  /* Slim themed scrollbars everywhere. Chrome/Firefox use the standard
+     properties (which take precedence); Safari falls back to ::-webkit-. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+    }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border-radius: 9999px;
+    }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+    }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
     }
 }

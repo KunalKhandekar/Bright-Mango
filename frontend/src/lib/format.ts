@@ -85,6 +85,11 @@ export function formatCountdown(ms: number): string {
   return parts.join(' ')
 }
 
+/** Shorten long labels for toasts, e.g. 'Understanding Different Response Ty…' */
+export function truncate(text: string, max = 32): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`
+}
+
 export function formatRelativeTime(value: string | Date): string {
   const diffMs = Date.now() - new Date(value).getTime()
   const sec = Math.round(diffMs / 1000)

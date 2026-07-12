@@ -12,6 +12,7 @@ import {
   updateLessonValidators,
   lessonIdParam,
   reorderLessonValidators,
+  uploadFailedValidators,
 } from './lesson.validation.js';
 
 const router = Router();
@@ -42,6 +43,7 @@ async function playbackGate(req: Request, res: Response, next: NextFunction): Pr
 router.post('/chapters/:chapterId/lessons', ...manage, validate(createLessonValidators), asyncHandler(ctrl.create));
 router.patch('/chapters/:chapterId/lessons/reorder', ...manage, validate(reorderLessonValidators), asyncHandler(ctrl.reorder));
 router.post('/lessons/:id/video/upload-url', ...manage, validate(lessonIdParam), asyncHandler(ctrl.uploadUrl));
+router.post('/lessons/:id/video/upload-failed', ...manage, validate(uploadFailedValidators), asyncHandler(ctrl.uploadFailed));
 router.patch('/lessons/:id', ...manage, validate(updateLessonValidators), asyncHandler(ctrl.update));
 router.delete('/lessons/:id', ...manage, validate(lessonIdParam), asyncHandler(ctrl.remove));
 

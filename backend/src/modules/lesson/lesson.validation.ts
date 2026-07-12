@@ -17,6 +17,11 @@ export const updateLessonValidators = [
 
 export const lessonIdParam = [param('id').isMongoId()];
 
+export const uploadFailedValidators = [
+  param('id').isMongoId(),
+  body('uid').isString().trim().isLength({ min: 1, max: 100 }),
+];
+
 export const reorderLessonValidators = [
   param('chapterId').isMongoId(),
   body('orderedIds').isArray({ min: 1 }),

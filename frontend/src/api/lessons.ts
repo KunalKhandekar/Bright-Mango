@@ -44,3 +44,10 @@ export function createVideoUploadUrl(lessonId: string) {
     api.post(`/lessons/${lessonId}/video/upload-url`),
   )
 }
+
+/** Tell the server the direct upload never completed so the lesson isn't stuck "processing". */
+export function reportVideoUploadFailed(lessonId: string, uid: string) {
+  return unwrap<Record<string, never>>(
+    api.post(`/lessons/${lessonId}/video/upload-failed`, { uid }),
+  )
+}

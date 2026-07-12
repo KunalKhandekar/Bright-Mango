@@ -2,7 +2,7 @@ import { Worker, UnrecoverableError } from 'bullmq';
 import { bullConnection, QUEUE_NAMES } from '../../config/queue.js';
 import { logger } from '../../common/utils/logger.js';
 import { getVideoStatus } from '../../integrations/stream.service.js';
-import { applyVideoStatus } from '../../modules/lesson/lesson.service.js';
+import { applyVideoStatus, markVideoError } from '../../modules/lesson/lesson.service.js';
 
 interface VideoStatusJob {
   lessonId: string;
@@ -19,6 +19,11 @@ export function startVideoStatusWorker(): Worker<VideoStatusJob> {
     async (job) => {
       const { lessonId, uid } = job.data;
       const status = await getVideoStatus(uid);
+      if (status.errored) {
+        // Terminal encode failure — stop retrying and surface it on the lesson.
+        await markVideoError(lessonId, uid);
+        throw new UnrecoverableError(`video ${uid} failed to encode: ${status.errorReason ?? 'unknown'}`);
+      }
       if (!status.ready) {
         // Retry via backoff until attempts exhausted.
         throw new Error(`video ${uid} not ready yet`);
@@ -30,8 +35,18 @@ export function startVideoStatusWorker(): Worker<VideoStatusJob> {
   );
 
   worker.on('failed', (job, err) => {
-    if (err instanceof UnrecoverableError) {
-      logger.error({ jobId: job?.id }, '[videoStatus.worker] gave up');
+    if (!job) return;
+    const exhausted = job.attemptsMade >= (job.opts.attempts ?? 1);
+    if (err instanceof UnrecoverableError || exhausted) {
+      // Never strand the lesson in 'processing' — the upload likely never
+      // completed (or encoding died), so flip it to 'error'.
+      logger.error(
+        { jobId: job.id, lessonId: job.data.lessonId, uid: job.data.uid, err: err.message },
+        '[videoStatus.worker] gave up — marking lesson video errored',
+      );
+      void markVideoError(job.data.lessonId, job.data.uid).catch((markErr) =>
+        logger.error({ err: markErr }, '[videoStatus.worker] failed to mark lesson errored'),
+      );
     }
   });
   return worker;

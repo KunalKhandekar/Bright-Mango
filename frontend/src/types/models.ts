@@ -68,7 +68,7 @@ export interface Chapter {
   updatedAt: string
 }
 
-export type VideoStatus = 'none' | 'processing' | 'ready'
+export type VideoStatus = 'none' | 'processing' | 'ready' | 'error'
 
 export interface Lesson {
   _id: string

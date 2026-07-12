@@ -44,6 +44,9 @@ export async function createDirectUpload(maxDurationSeconds = 7200): Promise<Dir
 
 export interface VideoStatus {
   ready: boolean;
+  /** Cloudflare reported a terminal encode failure — retrying the poll is pointless. */
+  errored: boolean;
+  errorReason: string | null;
   playbackId: string | null;
   durationSeconds: number;
 }
@@ -54,9 +57,12 @@ export async function getVideoStatus(uid: string): Promise<VideoStatus> {
     playback?: { hls?: string };
     duration?: number;
     uid: string;
+    status?: { state: string; errorReasonText?: string };
   }>(`/stream/${uid}`, { method: 'GET' });
   return {
     ready: result.readyToStream,
+    errored: result.status?.state === 'error',
+    errorReason: result.status?.errorReasonText ?? null,
     playbackId: result.readyToStream ? result.uid : null,
     durationSeconds: Math.round(result.duration ?? 0),
   };

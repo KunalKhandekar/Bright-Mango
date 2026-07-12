@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { GraduationCap, Loader2, Wand2 } from 'lucide-react'
+import { AlertCircle, GraduationCap, Loader2, Mail, MailCheck, ShieldCheck, UserRound, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   fetchDevOtp,
@@ -27,6 +27,24 @@ import { defaultDeviceName } from '@/features/auth/device-name'
 import { SessionLimitDialog } from '@/features/auth/SessionLimitDialog'
 
 type Step = 'email' | 'otp' | 'name'
+
+function FormError({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div className="bg-destructive/10 text-destructive flex items-start gap-2 rounded-md px-3 py-2 text-sm">
+      <AlertCircle className="mt-0.5 size-4 shrink-0" />
+      <span>{message}</span>
+    </div>
+  )
+}
+
+function StepIcon({ icon: Icon }: { icon: typeof Mail }) {
+  return (
+    <div className="bg-muted text-muted-foreground mx-auto mb-1 flex size-11 items-center justify-center rounded-full">
+      <Icon className="size-5" />
+    </div>
+  )
+}
 
 export function LoginPage() {
   const setUser = useAuthStore((s) => s.setUser)
@@ -195,14 +213,25 @@ export function LoginPage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-md flex-col items-center pt-8 sm:pt-16">
-      <div className="bg-primary/10 mb-6 flex size-14 items-center justify-center rounded-2xl">
-        <GraduationCap className="text-primary size-7" />
+    <div className="relative mx-auto flex w-full max-w-md flex-col items-center pt-6 pb-10 sm:pt-12">
+      <div
+        aria-hidden
+        className="bg-primary/10 pointer-events-none absolute -top-16 left-1/2 -z-10 h-72 w-72 -translate-x-1/2 rounded-full blur-3xl"
+      />
+      <div className="mb-6 flex flex-col items-center gap-3">
+        <div className="bg-primary text-primary-foreground ring-primary/10 flex size-14 items-center justify-center rounded-2xl shadow-lg ring-4">
+          <GraduationCap className="size-7" />
+        </div>
+        <div className="text-center">
+          <p className="text-lg font-semibold tracking-tight">BrightMango</p>
+          <p className="text-muted-foreground text-sm">Learn at your own pace</p>
+        </div>
       </div>
-      <Card className="w-full">
+      <Card className="w-full shadow-xl shadow-black/5 dark:shadow-black/25">
         {step === 'name' ? (
           <>
             <CardHeader className="text-center">
+              <StepIcon icon={UserRound} />
               <CardTitle className="text-xl">What should we call you?</CardTitle>
               <CardDescription>
                 Your name appears on comments and helps your mentor know you.
@@ -234,7 +263,7 @@ export function LoginPage() {
                     />
                   </div>
                 </div>
-                {error && <p className="text-destructive text-sm">{error}</p>}
+                <FormError message={error} />
                 <Button type="submit" className="w-full" disabled={busy || !firstName.trim()}>
                   {busy && <Loader2 className="size-4 animate-spin" />}
                   Continue
@@ -252,40 +281,50 @@ export function LoginPage() {
         ) : step === 'email' ? (
           <>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Welcome to BrightMango</CardTitle>
+              <CardTitle className="text-xl">Welcome back</CardTitle>
               <CardDescription>
-                Enter your email — we'll send you a one-time code. No password needed.
+                Sign in or create an account — we'll email you a one-time code.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={submitEmail} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoFocus
-                  />
+                  <div className="relative">
+                    <Mail className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                    <Input
+                      id="email"
+                      type="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      className="pl-9"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoFocus
+                    />
+                  </div>
                 </div>
-                {error && <p className="text-destructive text-sm">{error}</p>}
+                <FormError message={error} />
                 <Button type="submit" className="w-full" disabled={busy || !email}>
                   {busy && <Loader2 className="size-4 animate-spin" />}
-                  Continue
+                  Continue with email
                 </Button>
+                <p className="text-muted-foreground flex items-center justify-center gap-1.5 text-xs">
+                  <ShieldCheck className="size-3.5" />
+                  No password needed — we never store one.
+                </p>
               </form>
             </CardContent>
           </>
         ) : (
           <>
             <CardHeader className="text-center">
+              <StepIcon icon={MailCheck} />
               <CardTitle className="text-xl">Check your email</CardTitle>
               <CardDescription>
-                We sent a 6-digit code to <span className="font-medium">{email}</span>
+                We sent a 6-digit code to{' '}
+                <span className="text-foreground font-medium">{email}</span>
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -315,7 +354,7 @@ export function LoginPage() {
                     Remember this device
                   </Label>
                 </div>
-                {error && <p className="text-destructive text-sm">{error}</p>}
+                <FormError message={error} />
                 <Button type="submit" className="w-full" disabled={busy || otp.length !== 6}>
                   {busy && <Loader2 className="size-4 animate-spin" />}
                   Sign in

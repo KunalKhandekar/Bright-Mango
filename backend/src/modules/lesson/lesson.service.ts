@@ -127,6 +127,23 @@ export async function getPlayback(lessonId: string): Promise<{ playbackId: strin
   return { playbackId: lesson.videoUid, token };
 }
 
+/**
+ * Terminal failure: flip 'processing' → 'error' so the badge never lies forever.
+ * Guarded by uid + status so a newer re-upload in flight is never clobbered.
+ */
+export async function markVideoError(lessonId: string, uid: string): Promise<void> {
+  await Lesson.updateOne(
+    { _id: lessonId, videoUid: uid, videoStatus: 'processing' },
+    { $set: { videoStatus: 'error' } },
+  );
+}
+
+/** Browser-reported failure of the direct upload (network drop, closed tab, Cloudflare reject). */
+export async function reportUploadFailed(lessonId: string, mentorId: string, uid: string): Promise<void> {
+  await loadLessonOwned(lessonId, mentorId);
+  await markVideoError(lessonId, uid);
+}
+
 /** Used by the videoStatus worker once Cloudflare reports the video is ready. */
 export async function applyVideoStatus(
   lessonId: string,

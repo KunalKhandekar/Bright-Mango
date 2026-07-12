@@ -12,6 +12,11 @@ export async function uploadUrl(req: Request, res: Response): Promise<Response> 
   return ApiResponse.ok(res, 'Upload URL issued', data);
 }
 
+export async function uploadFailed(req: Request, res: Response): Promise<Response> {
+  await lessonService.reportUploadFailed(req.params.id, req.auth!.userId, req.body.uid);
+  return ApiResponse.ok(res, 'Video upload marked as failed');
+}
+
 export async function update(req: Request, res: Response): Promise<Response> {
   const lesson = await lessonService.updateLesson(req.params.id, req.auth!.userId, req.body);
   return ApiResponse.ok(res, 'Lesson updated', { lesson });

@@ -12,7 +12,7 @@ const lessonSchema = new Schema(
     // Cloudflare Stream: `videoUid` is set at upload; `videoPlaybackId` once encoding completes.
     videoUid: { type: String, default: null },
     videoPlaybackId: { type: String, default: null },
-    videoStatus: { type: String, enum: ['none', 'processing', 'ready'], default: 'none' },
+    videoStatus: { type: String, enum: ['none', 'processing', 'ready', 'error'], default: 'none' },
     durationSeconds: { type: Number, default: 0 },
     subtitlesUrl: { type: String, default: '' },
 
