@@ -7,9 +7,9 @@ import { isApiError } from '@/types/api'
  * server yet, so a failed request, a browser refresh, or an offline period never loses the
  * learner's position.
  *
- * The report is just the current playback position, and the backend stores it idempotently
- * (`lastPositionSeconds = position`, high-water `watchedSeconds`, sticky `completed`), so
- * replaying a queued position is always safe.
+ * The report is the current playback position plus the accumulated actual watch time, and
+ * the backend stores it idempotently (`lastPositionSeconds = position`, high-water
+ * `watchedSeconds`, sticky `completed`), so replaying a queued report is always safe.
  *
  * Storage is `localStorage` (not IndexedDB): payloads are tiny and, critically, the page
  * `unload`/`pagehide` beacon path is synchronous — we must write-before-send without
@@ -25,6 +25,8 @@ interface PendingProgress {
   lessonId: string
   courseId: string
   positionSeconds: number
+  // Optional for entries persisted by older builds.
+  watchedSeconds?: number
   updatedAt: number
 }
 
@@ -54,18 +56,25 @@ function writeMap(map: PendingMap): void {
 }
 
 /**
- * Merge a report into the persistent queue. The position takes the max so a queued flush
- * never rewinds the resume bookmark. Re-reads before writing so concurrent tabs stay
- * consistent.
+ * Merge a report into the persistent queue. Position and watched time take the max so a
+ * queued flush never rewinds the resume bookmark or the watch high-water. Re-reads before
+ * writing so concurrent tabs stay consistent.
  */
-export function enqueue(lessonId: string, courseId: string, positionSeconds: number): void {
+export function enqueue(
+  lessonId: string,
+  courseId: string,
+  positionSeconds: number,
+  watchedSeconds: number,
+): void {
   const pos = Math.max(0, Math.floor(positionSeconds))
+  const watched = Math.max(0, Math.floor(watchedSeconds))
   const map = readMap()
   const existing = map[lessonId]
   map[lessonId] = {
     lessonId,
     courseId,
     positionSeconds: Math.max(existing?.positionSeconds ?? 0, pos),
+    watchedSeconds: Math.max(existing?.watchedSeconds ?? 0, watched),
     updatedAt: Date.now(),
   }
   writeMap(map)
@@ -76,14 +85,15 @@ function peekAll(): PendingProgress[] {
 }
 
 /**
- * Acknowledge a flushed report. Deletes the entry unless a newer position was enqueued while
- * the request was in flight (a concurrent tick), in which case the remainder is kept.
+ * Acknowledge a flushed report. Deletes the entry unless a newer position/watch-time was
+ * enqueued while the request was in flight (a concurrent tick), in which case the remainder
+ * is kept.
  */
-function remove(lessonId: string, ackedPos: number): void {
+function remove(lessonId: string, ackedPos: number, ackedWatched: number): void {
   const map = readMap()
   const entry = map[lessonId]
   if (!entry) return
-  if (entry.positionSeconds <= ackedPos) {
+  if (entry.positionSeconds <= ackedPos && (entry.watchedSeconds ?? 0) <= ackedWatched) {
     delete map[lessonId]
     writeMap(map)
   }
@@ -125,8 +135,8 @@ export async function flush(): Promise<void> {
 
     for (const entry of peekAll()) {
       try {
-        await reportProgress(entry.lessonId, entry.positionSeconds)
-        remove(entry.lessonId, entry.positionSeconds)
+        await reportProgress(entry.lessonId, entry.positionSeconds, entry.watchedSeconds ?? 0)
+        remove(entry.lessonId, entry.positionSeconds, entry.watchedSeconds ?? 0)
         touchedCourses.add(entry.courseId)
       } catch (error) {
         if (isPermanentFailure(error)) {
@@ -140,6 +150,9 @@ export async function flush(): Promise<void> {
 
     for (const courseId of touchedCourses) {
       void queryClient.invalidateQueries({ queryKey: keys.courseProgress(courseId) })
+    }
+    if (touchedCourses.size > 0) {
+      void queryClient.invalidateQueries({ queryKey: keys.recentProgress })
     }
 
     if (scheduleRetry) {

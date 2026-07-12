@@ -167,6 +167,10 @@ export function LearnPage() {
         <Skeleton className="aspect-video w-full rounded-lg" />
       ) : canWatch && videoReady && playbackQuery.data ? (
         <VideoPlayer
+          // Remount per lesson: without this, the outgoing media's late timeupdate/pause
+          // events get attributed to the next lesson, and the one-shot resume seek never
+          // re-applies after the first lesson.
+          key={activeLesson?._id}
           token={playbackQuery.data.token}
           title={activeLesson?.title ?? ''}
           poster={activeLesson?.thumbnailUrl || undefined}

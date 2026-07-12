@@ -6,8 +6,8 @@ const lessonProgressSchema = new Schema(
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true },
     lessonId: { type: Schema.Types.ObjectId, ref: 'Lesson', required: true },
 
-    // High-water mark: the furthest playback position ever reached, capped at lesson
-    // duration. Powers the monotonic course-progress bar.
+    // High-water mark of seconds actually played (client-accumulated; seeks don't count),
+    // capped at lesson duration. Powers the monotonic course-progress bar.
     watchedSeconds: { type: Number, default: 0 },
     // Resume bookmark: the latest playback position the student was at.
     lastPositionSeconds: { type: Number, default: 0 },
