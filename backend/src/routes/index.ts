@@ -13,6 +13,7 @@ import commentRoutes from '../modules/comment/comment.routes.js';
 import emailRoutes from '../modules/email/email.routes.js';
 import emailTemplateRoutes from '../modules/emailTemplate/emailTemplate.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
+import dashboardRoutes from '../modules/dashboard/dashboard.routes.js';
 
 /** Root API router. Every module router mounts here under the API prefix. */
 const router = Router();
@@ -31,6 +32,7 @@ router.use('/comments', commentRoutes);
 router.use('/campaigns', emailRoutes);
 router.use('/email-templates', emailTemplateRoutes);
 router.use('/audit-logs', auditRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 // Content routes use mixed path roots (/courses, /chapters, /lessons, /resources),
 // so they mount at the API root rather than under a single prefix.

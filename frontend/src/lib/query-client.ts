@@ -74,4 +74,10 @@ export const keys = {
     ['admin', 'payments', 'series', range, interval] as const,
   adminOrders: (filters: { status?: string; page: number }) =>
     ['admin', 'payments', 'orders', filters] as const,
+  adminDashboardSummary: ['admin', 'dashboard', 'summary'] as const,
+  adminEnrollmentSeries: (range: { from?: string; to?: string }, interval: string) =>
+    ['admin', 'dashboard', 'enrollment-series', range, interval] as const,
+  adminEngagement: (range: { from?: string; to?: string }) =>
+    ['admin', 'dashboard', 'engagement', range] as const,
+  adminOverviewComments: ['admin', 'overview', 'recent-comments'] as const,
 }

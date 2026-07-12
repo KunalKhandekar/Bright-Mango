@@ -20,6 +20,8 @@ const lessonProgressSchema = new Schema(
 
 lessonProgressSchema.index({ studentId: 1, courseId: 1 });
 lessonProgressSchema.index({ studentId: 1, lessonId: 1 }, { unique: true });
+// Dashboard: per-course engagement (active students / completion) aggregations.
+lessonProgressSchema.index({ courseId: 1, lastWatchedAt: -1 });
 
 export type LessonProgressDoc = InferSchemaType<typeof lessonProgressSchema> & {
   _id: Types.ObjectId;

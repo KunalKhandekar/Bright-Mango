@@ -37,15 +37,15 @@ import {
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Paginator } from '@/components/shared/Paginator'
-import { formatDate, formatDateTime, formatPrice } from '@/lib/format'
+import { formatDateTime, formatPrice } from '@/lib/format'
 import { keys } from '@/lib/query-client'
-
-const RANGE_OPTIONS = [
-  { value: '7d', label: 'Last 7 days', days: 7, interval: 'day' as const },
-  { value: '30d', label: 'Last 30 days', days: 30, interval: 'day' as const },
-  { value: '90d', label: 'Last 90 days', days: 90, interval: 'day' as const },
-  { value: '12m', label: 'Last 12 months', days: 365, interval: 'month' as const },
-]
+import {
+  bucketLabel,
+  ChartTooltipFrame,
+  fillBuckets,
+  RangeSelect,
+  useDateRange,
+} from '@/features/admin/shared/chart'
 
 const ORDER_STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive'> = {
   paid: 'default',
@@ -84,51 +84,20 @@ function StatCard({
   )
 }
 
-/**
- * Zero-fill missing buckets so the time axis is continuous. Buckets are keyed
- * by LOCAL date (en-CA = YYYY-MM-DD) because the backend truncates to IST
- * midnights, which are 18:30 previous-day in UTC.
- */
-function fillBuckets(
-  points: Array<{ date: string; netRevenue: number }>,
-  from: Date,
-  to: Date,
-  interval: 'day' | 'month',
-): Array<{ date: string; netRevenue: number }> {
-  const keyLength = interval === 'day' ? 10 : 7
-  const keyOf = (d: Date) => d.toLocaleDateString('en-CA').slice(0, keyLength)
-  const byKey = new Map(points.map((p) => [keyOf(new Date(p.date)), p]))
-  const filled: Array<{ date: string; netRevenue: number }> = []
-  const cursor = new Date(from)
-  cursor.setHours(0, 0, 0, 0)
-  if (interval === 'month') cursor.setDate(1)
-  while (cursor <= to) {
-    filled.push(byKey.get(keyOf(cursor)) ?? { date: cursor.toISOString(), netRevenue: 0 })
-    if (interval === 'day') cursor.setDate(cursor.getDate() + 1)
-    else cursor.setMonth(cursor.getMonth() + 1)
-  }
-  return filled
-}
-
 export function PaymentsPage() {
   const [rangeKey, setRangeKey] = useState('30d')
   const [orderStatus, setOrderStatus] = useState(ALL_STATUSES)
   const [ordersPage, setOrdersPage] = useState(1)
 
-  const rangeOption = RANGE_OPTIONS.find((r) => r.value === rangeKey) ?? RANGE_OPTIONS[1]
-  const range = useMemo(() => {
-    const to = new Date()
-    const from = new Date(to.getTime() - rangeOption.days * 24 * 60 * 60 * 1000)
-    return { from: from.toISOString(), to: to.toISOString() }
-  }, [rangeOption.days])
+  const { range, interval } = useDateRange(rangeKey)
 
   const summaryQuery = useQuery({
     queryKey: keys.adminPaymentsSummary(range),
     queryFn: () => getPaymentsSummary(range),
   })
   const seriesQuery = useQuery({
-    queryKey: keys.adminRevenueSeries(range, rangeOption.interval),
-    queryFn: () => getRevenueTimeseries({ ...range, interval: rangeOption.interval }),
+    queryKey: keys.adminRevenueSeries(range, interval),
+    queryFn: () => getRevenueTimeseries({ ...range, interval }),
   })
   const byCourseQuery = useQuery({
     queryKey: keys.adminRevenueByCourse(range),
@@ -153,15 +122,10 @@ export function PaymentsPage() {
       seriesQuery.data.points,
       new Date(range.from),
       new Date(range.to),
-      rangeOption.interval,
-    ).map((p) => ({
-      ...p,
-      label:
-        rangeOption.interval === 'day'
-          ? formatDate(p.date)
-          : new Date(p.date).toLocaleDateString('en-IN', { month: 'short', year: '2-digit' }),
-    }))
-  }, [seriesQuery.data, range, rangeOption.interval])
+      interval,
+      (date) => ({ date, netRevenue: 0, orders: 0 }),
+    ).map((p) => ({ ...p, label: bucketLabel(p.date, interval) }))
+  }, [seriesQuery.data, range, interval])
   const hasRevenue = chartData.some((p) => p.netRevenue > 0)
   const courses = byCourseQuery.data?.courses ?? []
   const orders = ordersQuery.data?.orders ?? []
@@ -171,20 +135,7 @@ export function PaymentsPage() {
       <PageHeader
         title="Income"
         description="What your courses earned — overall and per course."
-        actions={
-          <Select value={rangeKey} onValueChange={setRangeKey}>
-            <SelectTrigger className="w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RANGE_OPTIONS.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        }
+        actions={<RangeSelect value={rangeKey} onValueChange={setRangeKey} />}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -249,10 +200,10 @@ export function PaymentsPage() {
                       if (!active || !payload?.length) return null
                       const point = payload[0].payload as (typeof chartData)[number]
                       return (
-                        <div className="bg-popover text-popover-foreground rounded-md border px-3 py-2 text-sm shadow-md">
+                        <ChartTooltipFrame>
                           <p className="font-medium">{point.label}</p>
                           <p>{formatPrice(point.netRevenue)} net</p>
-                        </div>
+                        </ChartTooltipFrame>
                       )
                     }}
                   />

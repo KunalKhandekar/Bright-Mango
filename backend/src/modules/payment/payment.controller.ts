@@ -7,6 +7,7 @@ import { logger } from '../../common/utils/logger.js';
 import * as paymentService from './payment.service.js';
 import * as analytics from './payment.analytics.service.js';
 import { getPagination, buildPaginationMeta } from '../../common/utils/pagination.util.js';
+import { parseRange } from '../../common/utils/dateRange.util.js';
 
 export async function createOrder(req: Request, res: Response): Promise<Response> {
   const data = await paymentService.createOrder(req.auth!.userId, req.body.courseId, req.body.couponCode);
@@ -28,16 +29,6 @@ export async function myOrders(req: Request, res: Response): Promise<Response> {
 }
 
 // ── Admin income analytics ──────────────────────────────────────────────────────
-
-/** Parse from/to query params, defaulting to the last 30 days. */
-function parseRange(req: Request): analytics.DateRange {
-  const to = typeof req.query.to === 'string' ? new Date(req.query.to) : new Date();
-  const from =
-    typeof req.query.from === 'string'
-      ? new Date(req.query.from)
-      : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
-  return { from, to };
-}
 
 export async function analyticsSummary(req: Request, res: Response): Promise<Response> {
   const summary = await analytics.getSummary(req.auth!.userId, parseRange(req));

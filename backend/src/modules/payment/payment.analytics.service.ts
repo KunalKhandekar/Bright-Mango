@@ -3,6 +3,7 @@ import { Order, OrderDoc } from './order.model.js';
 import { User } from '../user/user.model.js';
 import { Course } from '../course/course.model.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
+import { DateRange } from '../../common/utils/dateRange.util.js';
 
 /**
  * Read-only income/revenue aggregations for the admin dashboard. Kept separate
@@ -16,10 +17,7 @@ import { PaginationParams } from '../../common/utils/pagination.util.js';
 /** Day/month buckets align to Indian time (the platform charges in INR). */
 const BUCKET_TIMEZONE = 'Asia/Kolkata';
 
-export interface DateRange {
-  from: Date;
-  to: Date;
-}
+export type { DateRange };
 
 function paidMatch(mentorId: string, range: DateRange) {
   return {

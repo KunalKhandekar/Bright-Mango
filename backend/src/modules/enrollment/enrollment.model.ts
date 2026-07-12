@@ -14,6 +14,8 @@ const enrollmentSchema = new Schema(
 
 enrollmentSchema.index({ studentId: 1, courseId: 1 }, { unique: true });
 enrollmentSchema.index({ courseId: 1 });
+// Dashboard: mentor-scoped counts and enrollment timeseries.
+enrollmentSchema.index({ mentorId: 1, enrolledAt: -1 });
 
 export type EnrollmentDoc = InferSchemaType<typeof enrollmentSchema> & { _id: Types.ObjectId };
 
