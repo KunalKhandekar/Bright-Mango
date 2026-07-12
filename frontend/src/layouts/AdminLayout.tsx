@@ -104,34 +104,36 @@ export function AdminLayout() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="bg-background/80 sticky top-0 z-40 flex h-14 items-center gap-3 border-b px-4 backdrop-blur">
-          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Menu">
-                <Menu className="size-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-3">
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <div className="mt-6">
-                <AdminNav onNavigate={() => setMenuOpen(false)} />
+        <header className="bg-background/80 sticky top-0 z-40 border-b backdrop-blur">
+          <div className="mx-auto flex h-14 w-full max-w-6xl items-center gap-3 px-4">
+            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Menu">
+                  <Menu className="size-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-3">
+                <SheetTitle className="sr-only">Navigation</SheetTitle>
+                <div className="mt-6">
+                  <AdminNav onNavigate={() => setMenuOpen(false)} />
+                </div>
+              </SheetContent>
+            </Sheet>
+
+            <span className="text-sm font-medium lg:hidden">Admin</span>
+
+            <div className="ml-auto flex items-center gap-1.5">
+              <ThemeToggle />
+              <div className="flex items-center gap-2 pl-1">
+                <UserAvatar name={user?.name} email={user?.email} avatar={user?.avatar} />
+                <span className="hidden text-sm font-medium sm:inline">
+                  {user?.name || user?.email}
+                </span>
               </div>
-            </SheetContent>
-          </Sheet>
-
-          <span className="text-sm font-medium lg:hidden">Admin</span>
-
-          <div className="ml-auto flex items-center gap-1.5">
-            <ThemeToggle />
-            <div className="flex items-center gap-2 pl-1">
-              <UserAvatar name={user?.name} email={user?.email} avatar={user?.avatar} />
-              <span className="hidden text-sm font-medium sm:inline">
-                {user?.name || user?.email}
-              </span>
+              <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Sign out">
+                <LogOut className="size-4.5" />
+              </Button>
             </div>
-            <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Sign out">
-              <LogOut className="size-4.5" />
-            </Button>
           </div>
         </header>
 
