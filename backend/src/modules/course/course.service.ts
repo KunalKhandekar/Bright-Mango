@@ -7,6 +7,7 @@ import { Enrollment } from '../enrollment/enrollment.model.js';
 import { LessonProgress } from '../progress/lessonProgress.model.js';
 import { RecentlyWatched } from '../progress/recentlyWatched.model.js';
 import { Comment } from '../comment/comment.model.js';
+import { Coupon } from '../coupon/coupon.model.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
@@ -220,7 +221,8 @@ export async function hardDeleteCourseTree(courseId: string): Promise<{ lessonUi
   const lessonUids = lessons.map((l) => l.videoUid).filter((u): u is string => Boolean(u));
 
   // Remove the content tree plus every record keyed to the course, so nothing is
-  // left orphaned: enrollments, per-student progress/recently-watched, and comments.
+  // left orphaned: enrollments, per-student progress/recently-watched, comments,
+  // and course-scoped coupons (mentor-wide coupons have courseId: null and stay).
   await Promise.all([
     Lesson.deleteMany({ courseId }),
     Chapter.deleteMany({ courseId }),
@@ -228,6 +230,7 @@ export async function hardDeleteCourseTree(courseId: string): Promise<{ lessonUi
     LessonProgress.deleteMany({ courseId }),
     RecentlyWatched.deleteMany({ courseId }),
     Comment.deleteMany({ courseId }),
+    Coupon.deleteMany({ courseId }),
     Course.deleteOne({ _id: courseId }),
   ]);
   return { lessonUids };
