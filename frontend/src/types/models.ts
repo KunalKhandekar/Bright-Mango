@@ -253,6 +253,28 @@ export interface AuditLog {
   createdAt: string
 }
 
+export type BugReportStatus = 'open' | 'in_progress' | 'resolved' | 'dismissed'
+export type BugReportCategory = 'playback' | 'payment' | 'content' | 'account' | 'other'
+export type BugReportSeverity = 'low' | 'medium' | 'high'
+
+export interface BugReport {
+  _id: string
+  userId: string | CommentUser
+  title: string
+  description: string
+  category: BugReportCategory
+  severity: BugReportSeverity
+  status: BugReportStatus
+  /** Stripped from the student-facing /bug-reports/mine response */
+  context?: { pageUrl?: string; userAgent?: string }
+  screenshotKey?: string | null
+  adminNote?: string
+  resolvedBy?: string | CommentUser | null
+  resolvedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface BlacklistEntry {
   _id: string
   email: string

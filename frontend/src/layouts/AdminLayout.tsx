@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
   BookOpenCheck,
+  Bug,
   FileCode2,
   GraduationCap,
   IndianRupee,
@@ -18,6 +20,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { logout } from '@/api/auth'
+import { getOpenBugReportCount } from '@/api/bug-reports'
+import { keys } from '@/lib/query-client'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { ThemeToggle } from '@/components/shared/ThemeToggle'
@@ -33,6 +38,7 @@ const NAV_ITEMS = [
   { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent },
   { to: '/admin/payments', label: 'Income', icon: IndianRupee },
   { to: '/admin/comments', label: 'Comments', icon: MessageSquare },
+  { to: '/admin/bug-reports', label: 'Bug reports', icon: Bug },
   { to: '/admin/campaigns', label: 'Campaigns', icon: Mail },
   { to: '/admin/email-templates', label: 'Email templates', icon: FileCode2 },
   { to: '/admin/audit', label: 'Audit log', icon: ScrollText },
@@ -40,6 +46,13 @@ const NAV_ITEMS = [
 ]
 
 function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
+  const openBugsQuery = useQuery({
+    queryKey: keys.adminOpenBugReportCount,
+    queryFn: getOpenBugReportCount,
+    refetchInterval: 60_000,
+  })
+  const openBugs = openBugsQuery.data?.count ?? 0
+
   return (
     <nav className="flex flex-col gap-1">
       {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
@@ -59,6 +72,11 @@ function AdminNav({ onNavigate }: { onNavigate?: () => void }) {
         >
           <Icon className="size-4" />
           {label}
+          {to === '/admin/bug-reports' && openBugs > 0 && (
+            <Badge variant="secondary" className="ml-auto">
+              {openBugs}
+            </Badge>
+          )}
         </NavLink>
       ))}
     </nav>

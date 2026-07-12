@@ -20,6 +20,7 @@ export const AUDIT_ACTIONS = {
   EMAIL_TEMPLATE_UPDATED: 'EMAIL_TEMPLATE_UPDATED',
   EMAIL_TEMPLATE_DELETED: 'EMAIL_TEMPLATE_DELETED',
   EMAIL_TEMPLATE_ASSIGNED: 'EMAIL_TEMPLATE_ASSIGNED',
+  BUG_REPORT_STATUS_CHANGED: 'BUG_REPORT_STATUS_CHANGED',
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -32,4 +33,5 @@ export const AUDIT_ENTITY_TYPES = [
   'Coupon',
   'EmailCampaign',
   'EmailTemplate',
+  'BugReport',
 ] as const;

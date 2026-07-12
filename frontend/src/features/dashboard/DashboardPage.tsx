@@ -14,6 +14,7 @@ import { keys } from '@/lib/query-client'
 import { refId } from '@/types/models'
 import { useAuthStore } from '@/stores/auth.store'
 import { CourseProgressCard } from '@/features/dashboard/CourseProgressCard'
+import { MyBugReportsSection } from '@/features/bug-reports/MyBugReportsSection'
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user)
@@ -104,6 +105,8 @@ export function DashboardPage() {
           </>
         )}
       </section>
+
+      <MyBugReportsSection />
     </div>
   )
 }

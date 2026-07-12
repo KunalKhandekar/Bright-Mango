@@ -44,6 +44,9 @@ export const PERMISSIONS = {
   // Audit
   AUDIT_VIEW: 'audit:view',
 
+  // Bug reports
+  BUG_REPORT_MANAGE: 'bug_report:manage',
+
   // Student-facing
   CONTENT_CONSUME: 'content:consume', // watch purchased videos
   COMMENT_CRUD_OWN: 'comment:crud_own',
@@ -72,6 +75,7 @@ const MENTOR_PERMISSIONS: Permission[] = [
   PERMISSIONS.EMAIL_TEMPLATE_MANAGE,
   PERMISSIONS.PAYMENT_VIEW_ALL,
   PERMISSIONS.AUDIT_VIEW,
+  PERMISSIONS.BUG_REPORT_MANAGE,
 ];
 
 const STUDENT_PERMISSIONS: Permission[] = [

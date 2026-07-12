@@ -80,4 +80,13 @@ export const keys = {
   adminEngagement: (range: { from?: string; to?: string }) =>
     ['admin', 'dashboard', 'engagement', range] as const,
   adminOverviewComments: ['admin', 'overview', 'recent-comments'] as const,
+  myBugReports: ['bug-reports', 'mine'] as const,
+  adminBugReports: (filters: {
+    status?: string
+    category?: string
+    severity?: string
+    page: number
+  }) => ['admin', 'bug-reports', filters] as const,
+  adminOpenBugReportCount: ['admin', 'bug-reports', 'open-count'] as const,
+  bugReportScreenshot: (id: string) => ['bug-reports', 'screenshot', id] as const,
 }

@@ -26,6 +26,7 @@ import { CampaignDetailPage } from '@/features/admin/campaigns/CampaignDetailPag
 import { EmailTemplatesPage } from '@/features/admin/email-templates/EmailTemplatesPage'
 import { EmailTemplateEditorPage } from '@/features/admin/email-templates/EmailTemplateEditorPage'
 import { AuditLogsPage } from '@/features/admin/audit/AuditLogsPage'
+import { BugReportsPage } from '@/features/admin/bug-reports/BugReportsPage'
 import { AdminSettingsPage } from '@/features/admin/settings/AdminSettingsPage'
 import { NotFoundPage } from '@/features/misc/NotFoundPage'
 
@@ -77,6 +78,7 @@ export const router = createBrowserRouter([
           { path: '/admin/email-templates', element: <EmailTemplatesPage /> },
           { path: '/admin/email-templates/new', element: <EmailTemplateEditorPage /> },
           { path: '/admin/email-templates/:id', element: <EmailTemplateEditorPage /> },
+          { path: '/admin/bug-reports', element: <BugReportsPage /> },
           { path: '/admin/audit', element: <AuditLogsPage /> },
           { path: '/admin/settings', element: <AdminSettingsPage /> },
           { path: '/admin/*', element: <Navigate to="/admin" replace /> },
