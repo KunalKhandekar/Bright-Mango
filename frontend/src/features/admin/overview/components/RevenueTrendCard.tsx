@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { QueryErrorState } from '@/components/shared/QueryErrorState'
 import { formatPrice } from '@/lib/format'
 import { keys } from '@/lib/query-client'
 import {
@@ -55,6 +56,11 @@ export function RevenueTrendCard({
       <CardContent>
         {seriesQuery.isPending ? (
           <Skeleton className="h-64 w-full" />
+        ) : seriesQuery.isError ? (
+          <QueryErrorState
+            message="Couldn't load revenue."
+            onRetry={() => void seriesQuery.refetch()}
+          />
         ) : !hasRevenue ? (
           <EmptyState
             icon={TrendingUp}

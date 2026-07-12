@@ -14,6 +14,7 @@ import { getEnrollmentTimeseries } from '@/api/dashboard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { QueryErrorState } from '@/components/shared/QueryErrorState'
 import { keys } from '@/lib/query-client'
 import {
   bucketLabel,
@@ -55,6 +56,11 @@ export function EnrollmentTrendCard({
       <CardContent>
         {seriesQuery.isPending ? (
           <Skeleton className="h-64 w-full" />
+        ) : seriesQuery.isError ? (
+          <QueryErrorState
+            message="Couldn't load enrollments."
+            onRetry={() => void seriesQuery.refetch()}
+          />
         ) : !hasEnrollments ? (
           <EmptyState
             icon={GraduationCap}

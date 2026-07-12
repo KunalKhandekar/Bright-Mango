@@ -34,6 +34,7 @@ export function AdminDashboardPage() {
         range={range}
         rangeLabel={rangeLabel}
         commentsTotal={commentsQuery.data?.meta?.total}
+        commentsError={commentsQuery.isError}
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -49,6 +50,8 @@ export function AdminDashboardPage() {
       <LatestCommentsCard
         comments={commentsQuery.data?.comments ?? []}
         isPending={commentsQuery.isPending}
+        isError={commentsQuery.isError}
+        onRetry={() => void commentsQuery.refetch()}
       />
     </div>
   )

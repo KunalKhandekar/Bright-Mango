@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { QueryErrorState } from '@/components/shared/QueryErrorState'
 import { keys } from '@/lib/query-client'
 import type { IsoDateRange } from '@/features/admin/shared/chart'
 
@@ -36,11 +37,16 @@ export function EngagementCard({
         <CardTitle className="text-base">Engagement</CardTitle>
       </CardHeader>
       <CardContent>
-        {engagementQuery.isPending || !engagement ? (
+        {engagementQuery.isPending ? (
           <div className="space-y-4">
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-32 w-full" />
           </div>
+        ) : !engagement ? (
+          <QueryErrorState
+            message="Couldn't load engagement."
+            onRetry={() => void engagementQuery.refetch()}
+          />
         ) : engagement.courses.length === 0 ? (
           <EmptyState
             icon={Activity}

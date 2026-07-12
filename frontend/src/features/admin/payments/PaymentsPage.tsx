@@ -35,6 +35,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { QueryErrorState } from '@/components/shared/QueryErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Paginator } from '@/components/shared/Paginator'
 import { formatDateTime, formatPrice } from '@/lib/format'
@@ -142,22 +143,22 @@ export function PaymentsPage() {
         <StatCard
           icon={IndianRupee}
           label="Net revenue"
-          value={summary && formatPrice(summary.netRevenue)}
+          value={summaryQuery.isError ? '—' : summary && formatPrice(summary.netRevenue)}
         />
         <StatCard
           icon={TrendingUp}
           label="Gross revenue"
-          value={summary && formatPrice(summary.grossRevenue)}
+          value={summaryQuery.isError ? '—' : summary && formatPrice(summary.grossRevenue)}
         />
         <StatCard
           icon={TicketPercent}
           label="Discounts given"
-          value={summary && formatPrice(summary.discountTotal)}
+          value={summaryQuery.isError ? '—' : summary && formatPrice(summary.discountTotal)}
         />
         <StatCard
           icon={Receipt}
           label="Paid orders"
-          value={summary && String(summary.paidOrders)}
+          value={summaryQuery.isError ? '—' : summary && String(summary.paidOrders)}
         />
       </div>
 
@@ -168,6 +169,11 @@ export function PaymentsPage() {
         <CardContent>
           {seriesQuery.isPending ? (
             <Skeleton className="h-64 w-full" />
+          ) : seriesQuery.isError ? (
+            <QueryErrorState
+              message="Couldn't load revenue."
+              onRetry={() => void seriesQuery.refetch()}
+            />
           ) : !hasRevenue ? (
             <EmptyState
               icon={TrendingUp}
@@ -228,6 +234,11 @@ export function PaymentsPage() {
           <CardContent>
             {byCourseQuery.isPending ? (
               <Skeleton className="h-48 w-full" />
+            ) : byCourseQuery.isError ? (
+              <QueryErrorState
+                message="Couldn't load earnings."
+                onRetry={() => void byCourseQuery.refetch()}
+              />
             ) : courses.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">
                 No paid orders in this period.
@@ -287,6 +298,11 @@ export function PaymentsPage() {
           <CardContent className="space-y-4">
             {ordersQuery.isPending ? (
               <Skeleton className="h-48 w-full" />
+            ) : ordersQuery.isError ? (
+              <QueryErrorState
+                message="Couldn't load orders."
+                onRetry={() => void ordersQuery.refetch()}
+              />
             ) : orders.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">No orders found.</p>
             ) : (

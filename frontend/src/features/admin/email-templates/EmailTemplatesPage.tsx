@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table'
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { QueryErrorState } from '@/components/shared/QueryErrorState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Paginator } from '@/components/shared/Paginator'
 import { errorMessage } from '@/lib/error-messages'
@@ -95,6 +96,11 @@ export function EmailTemplatesPage() {
         <CardContent className="space-y-4">
           {processesQuery.isPending ? (
             <Skeleton className="h-48 w-full" />
+          ) : processesQuery.isError ? (
+            <QueryErrorState
+              message="Couldn't load email processes."
+              onRetry={() => void processesQuery.refetch()}
+            />
           ) : (
             (processesQuery.data?.processes ?? []).map((proc) => (
               <div
@@ -146,6 +152,11 @@ export function EmailTemplatesPage() {
 
       {templatesQuery.isPending ? (
         <Skeleton className="h-72 w-full" />
+      ) : templatesQuery.isError ? (
+        <QueryErrorState
+          message="Couldn't load templates."
+          onRetry={() => void templatesQuery.refetch()}
+        />
       ) : templates.length === 0 ? (
         <EmptyState
           icon={FileCode2}

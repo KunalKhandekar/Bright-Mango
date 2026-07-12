@@ -5,14 +5,19 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { UserAvatar } from '@/components/shared/UserAvatar'
+import { QueryErrorState } from '@/components/shared/QueryErrorState'
 import { formatRelativeTime } from '@/lib/format'
 
 export function LatestCommentsCard({
   comments,
   isPending,
+  isError,
+  onRetry,
 }: {
   comments: CommentNode[]
   isPending: boolean
+  isError: boolean
+  onRetry: () => void
 }) {
   return (
     <Card>
@@ -30,6 +35,8 @@ export function LatestCommentsCard({
             <Skeleton className="h-12 w-full" />
             <Skeleton className="h-12 w-full" />
           </div>
+        ) : isError ? (
+          <QueryErrorState message="Couldn't load comments." onRetry={onRetry} />
         ) : comments.length === 0 ? (
           <p className="text-muted-foreground text-sm">
             No comments yet — they'll show up as students start discussing lessons.

@@ -3,6 +3,7 @@ import { getRevenueByCourse } from '@/api/payments'
 import { getEnrollmentStats } from '@/api/enrollments'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { QueryErrorState } from '@/components/shared/QueryErrorState'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatPrice } from '@/lib/format'
 import { keys } from '@/lib/query-client'
@@ -78,6 +79,11 @@ export function TopCoursesCard({ range }: { range: IsoDateRange }) {
           <TabsContent value="revenue" className="pt-3">
             {revenueQuery.isPending ? (
               <RowsSkeleton />
+            ) : revenueQuery.isError ? (
+              <QueryErrorState
+                message="Couldn't load revenue."
+                onRetry={() => void revenueQuery.refetch()}
+              />
             ) : topRevenue.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">
                 No paid orders in this period.
@@ -99,6 +105,11 @@ export function TopCoursesCard({ range }: { range: IsoDateRange }) {
           <TabsContent value="enrollments" className="pt-3">
             {enrollmentsQuery.isPending ? (
               <RowsSkeleton />
+            ) : enrollmentsQuery.isError ? (
+              <QueryErrorState
+                message="Couldn't load enrollments."
+                onRetry={() => void enrollmentsQuery.refetch()}
+              />
             ) : topEnrolled.length === 0 ? (
               <p className="text-muted-foreground py-8 text-center text-sm">No enrollments yet.</p>
             ) : (

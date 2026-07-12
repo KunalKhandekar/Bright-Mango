@@ -75,10 +75,12 @@ export function OverviewStatCards({
   range,
   rangeLabel,
   commentsTotal,
+  commentsError,
 }: {
   range: IsoDateRange
   rangeLabel: string
   commentsTotal: number | undefined
+  commentsError: boolean
 }) {
   const summaryQuery = useQuery({
     queryKey: keys.adminDashboardSummary,
@@ -91,38 +93,43 @@ export function OverviewStatCards({
 
   const summary = summaryQuery.data?.summary
   const payments = paymentsQuery.data?.summary
+  // A failed query renders "—" — leaving value undefined would show a skeleton forever.
+  const summaryStat = (v: number | undefined) =>
+    summaryQuery.isError ? '—' : v === undefined ? undefined : String(v)
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       <StatCard
         icon={BookOpen}
         label="Courses"
-        value={summary && String(summary.courses)}
+        value={summaryStat(summary?.courses)}
         to="/admin/courses"
       />
       <StatCard
         icon={Users}
         label="Students"
-        value={summary && String(summary.students)}
+        value={summaryStat(summary?.students)}
         to="/admin/students"
       />
       <StatCard
         icon={GraduationCap}
         label="Enrollments"
-        value={summary && String(summary.enrollments)}
+        value={summaryStat(summary?.enrollments)}
         to="/admin/enrollments"
       />
       <StatCard
         icon={IndianRupee}
         label="Net revenue"
-        value={payments && formatPrice(payments.netRevenue)}
+        value={paymentsQuery.isError ? '—' : payments && formatPrice(payments.netRevenue)}
         hint={rangeLabel}
         to="/admin/payments"
       />
       <StatCard
         icon={MessageSquare}
         label="Comments"
-        value={commentsTotal === undefined ? undefined : String(commentsTotal)}
+        value={
+          commentsError ? '—' : commentsTotal === undefined ? undefined : String(commentsTotal)
+        }
         to="/admin/comments"
       />
     </div>
