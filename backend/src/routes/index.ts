@@ -19,7 +19,7 @@ import dashboardRoutes from '../modules/dashboard/dashboard.routes.js';
 const router = Router();
 
 router.get('/health', (_req, res) => {
-  res.json({ success: true, statusCode: 200, message: 'ok', data: { uptime: process.uptime() } });
+  res.json({ success: true, statusCode: 200, message: 'ok & running', data: { uptime: process.uptime() } });
 });
 
 router.use('/auth', authRoutes);
