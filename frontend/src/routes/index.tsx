@@ -16,11 +16,15 @@ import { CourseBuilderPage } from '@/features/admin/courses/CourseBuilderPage'
 import { StudentsPage } from '@/features/admin/students/StudentsPage'
 import { StudentDetailPage } from '@/features/admin/students/StudentDetailPage'
 import { BlacklistPage } from '@/features/admin/students/BlacklistPage'
+import { EnrollmentsPage } from '@/features/admin/enrollments/EnrollmentsPage'
 import { CouponsPage } from '@/features/admin/coupons/CouponsPage'
+import { PaymentsPage } from '@/features/admin/payments/PaymentsPage'
 import { CommentsModerationPage } from '@/features/admin/comments/CommentsModerationPage'
 import { CampaignsPage } from '@/features/admin/campaigns/CampaignsPage'
 import { CampaignComposePage } from '@/features/admin/campaigns/CampaignComposePage'
 import { CampaignDetailPage } from '@/features/admin/campaigns/CampaignDetailPage'
+import { EmailTemplatesPage } from '@/features/admin/email-templates/EmailTemplatesPage'
+import { EmailTemplateEditorPage } from '@/features/admin/email-templates/EmailTemplateEditorPage'
 import { AuditLogsPage } from '@/features/admin/audit/AuditLogsPage'
 import { AdminSettingsPage } from '@/features/admin/settings/AdminSettingsPage'
 import { NotFoundPage } from '@/features/misc/NotFoundPage'
@@ -63,11 +67,16 @@ export const router = createBrowserRouter([
           { path: '/admin/students', element: <StudentsPage /> },
           { path: '/admin/students/:id', element: <StudentDetailPage /> },
           { path: '/admin/blacklist', element: <BlacklistPage /> },
+          { path: '/admin/enrollments', element: <EnrollmentsPage /> },
           { path: '/admin/coupons', element: <CouponsPage /> },
+          { path: '/admin/payments', element: <PaymentsPage /> },
           { path: '/admin/comments', element: <CommentsModerationPage /> },
           { path: '/admin/campaigns', element: <CampaignsPage /> },
           { path: '/admin/campaigns/new', element: <CampaignComposePage /> },
           { path: '/admin/campaigns/:id', element: <CampaignDetailPage /> },
+          { path: '/admin/email-templates', element: <EmailTemplatesPage /> },
+          { path: '/admin/email-templates/new', element: <EmailTemplateEditorPage /> },
+          { path: '/admin/email-templates/:id', element: <EmailTemplateEditorPage /> },
           { path: '/admin/audit', element: <AuditLogsPage /> },
           { path: '/admin/settings', element: <AdminSettingsPage /> },
           { path: '/admin/*', element: <Navigate to="/admin" replace /> },

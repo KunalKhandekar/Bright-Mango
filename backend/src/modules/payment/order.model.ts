@@ -18,6 +18,7 @@ const orderSchema = new Schema(
 
 orderSchema.index({ studentId: 1 });
 orderSchema.index({ courseId: 1 });
+orderSchema.index({ mentorId: 1, status: 1, createdAt: -1 }); // income analytics + admin order list
 orderSchema.index({ razorpayOrderId: 1 }, { unique: true });
 
 export type OrderDoc = InferSchemaType<typeof orderSchema> & { _id: Types.ObjectId };

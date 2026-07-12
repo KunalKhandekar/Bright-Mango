@@ -11,6 +11,7 @@ import couponRoutes from '../modules/coupon/coupon.routes.js';
 import progressRoutes from '../modules/progress/progress.routes.js';
 import commentRoutes from '../modules/comment/comment.routes.js';
 import emailRoutes from '../modules/email/email.routes.js';
+import emailTemplateRoutes from '../modules/emailTemplate/emailTemplate.routes.js';
 import auditRoutes from '../modules/audit/audit.routes.js';
 
 /** Root API router. Every module router mounts here under the API prefix. */
@@ -28,6 +29,7 @@ router.use('/enrollments', enrollmentRoutes);
 router.use('/progress', progressRoutes);
 router.use('/comments', commentRoutes);
 router.use('/campaigns', emailRoutes);
+router.use('/email-templates', emailTemplateRoutes);
 router.use('/audit-logs', auditRoutes);
 
 // Content routes use mixed path roots (/courses, /chapters, /lessons, /resources),

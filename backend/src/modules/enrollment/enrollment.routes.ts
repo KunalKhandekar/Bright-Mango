@@ -5,12 +5,31 @@ import { authenticate } from '../../common/middlewares/authenticate.js';
 import { authorize } from '../../common/middlewares/authorize.js';
 import { PERMISSIONS } from '../../common/constants/permissions.js';
 import * as ctrl from './enrollment.controller.js';
-import { manualEnrollValidators, enrollmentIdParam, courseIdParam } from './enrollment.validation.js';
+import {
+  manualEnrollValidators,
+  enrollmentIdParam,
+  courseIdParam,
+  listEnrollmentsValidators,
+} from './enrollment.validation.js';
 
 const router = Router();
 
 router.get('/me', authenticate, asyncHandler(ctrl.listMine));
 router.get('/me/:courseId', authenticate, validate(courseIdParam), asyncHandler(ctrl.getMine));
+
+router.get(
+  '/',
+  authenticate,
+  authorize(PERMISSIONS.ENROLLMENT_VIEW_ALL),
+  validate(listEnrollmentsValidators),
+  asyncHandler(ctrl.listAll),
+);
+router.get(
+  '/stats',
+  authenticate,
+  authorize(PERMISSIONS.ENROLLMENT_VIEW_ALL),
+  asyncHandler(ctrl.stats),
+);
 
 router.post(
   '/manual',

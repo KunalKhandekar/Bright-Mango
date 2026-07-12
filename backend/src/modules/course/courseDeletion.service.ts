@@ -3,6 +3,7 @@ import { ApiError } from '../../common/http/ApiError.js';
 import { enqueueCourseDeletion, removeCourseDeletion, enqueueEmail } from '../../jobs/queues.js';
 import { requestActionOtp, verifyActionOtp } from '../auth/otp.service.js';
 import { auditLog } from '../audit/audit.service.js';
+import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import { assertCourseOwner, setStatus } from './course.service.js';
 import { Course } from './course.model.js';
 import { CourseDeletionRequest } from './courseDeletionRequest.model.js';
@@ -16,9 +17,15 @@ export async function requestCourseDeletion(
   mentorId: string,
   mentorEmail: string,
 ): Promise<void> {
-  await assertCourseOwner(courseId, mentorId);
+  const course = await assertCourseOwner(courseId, mentorId);
   const otp = await requestActionOtp(mentorEmail, `${PURPOSE}:${courseId}`);
-  await enqueueEmail({ type: 'otp', to: mentorEmail, otp, ttlMinutes: 5 });
+  await enqueueEmail({
+    type: 'deletion-otp',
+    to: mentorEmail,
+    otp,
+    ttlMinutes: 5,
+    courseTitle: course.title,
+  });
 }
 
 /** Step 2 — verify OTP, schedule the 24h delayed deletion, flip status. */
@@ -45,7 +52,7 @@ export async function confirmCourseDeletion(
   await Course.updateOne({ _id: courseId }, { $set: { scheduledDeleteAt: executeAt } });
   auditLog({
     userId: mentorId,
-    action: 'COURSE_DELETE_SCHEDULED',
+    action: AUDIT_ACTIONS.COURSE_DELETE_SCHEDULED,
     entityType: 'Course',
     entityId: new Types.ObjectId(courseId),
     metadata: { executeAt },
@@ -66,7 +73,7 @@ export async function cancelCourseDeletion(courseId: string, mentorId: string): 
   await Course.updateOne({ _id: courseId }, { $set: { scheduledDeleteAt: null } });
   auditLog({
     userId: mentorId,
-    action: 'COURSE_DELETE_CANCELLED',
+    action: AUDIT_ACTIONS.COURSE_DELETE_CANCELLED,
     entityType: 'Course',
     entityId: new Types.ObjectId(courseId),
   });

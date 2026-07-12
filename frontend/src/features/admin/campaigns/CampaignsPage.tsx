@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Plus } from 'lucide-react'
-import { listCampaigns } from '@/api/campaigns'
+import { Mail, Plus, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { cancelCampaign, listCampaigns } from '@/api/campaigns'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -14,9 +15,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Paginator } from '@/components/shared/Paginator'
+import { errorMessage } from '@/lib/error-messages'
 import { formatDateTime } from '@/lib/format'
 import { keys } from '@/lib/query-client'
 import type { Campaign } from '@/types/models'
@@ -27,21 +30,36 @@ export const CAMPAIGN_STATUS_VARIANT: Record<
 > = {
   completed: 'default',
   sending: 'secondary',
+  scheduled: 'secondary',
   pending: 'outline',
+  cancelled: 'outline',
 }
+
+/** Statuses that can still change without user action (worth polling for). */
+const LIVE_STATUSES = new Set<Campaign['status']>(['pending', 'sending', 'scheduled'])
 
 export function CampaignsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [page, setPage] = useState(1)
 
   const { data, isPending } = useQuery({
     queryKey: keys.campaigns(page),
     queryFn: () => listCampaigns({ page }),
-    // Live-update while a campaign is being delivered.
+    // Live-update while a campaign is being delivered or waiting to fire.
     refetchInterval: (query) =>
-      query.state.data?.campaigns.some((c) => c.status !== 'completed') ? 5_000 : false,
+      query.state.data?.campaigns.some((c) => LIVE_STATUSES.has(c.status)) ? 5_000 : false,
   })
   const campaigns = data?.campaigns ?? []
+
+  const cancel = useMutation({
+    mutationFn: cancelCampaign,
+    onSuccess: () => {
+      toast.success('Campaign cancelled')
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'campaigns'] })
+    },
+    onError: (err) => toast.error(errorMessage(err)),
+  })
 
   return (
     <div className="space-y-6">
@@ -81,7 +99,9 @@ export function CampaignsPage() {
                   <TableHead>Subject</TableHead>
                   <TableHead>Sent</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Scheduled for</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="w-12" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -103,7 +123,28 @@ export function CampaignsPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground whitespace-nowrap">
+                      {campaign.scheduledFor ? formatDateTime(campaign.scheduledFor) : '—'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground whitespace-nowrap">
                       {formatDateTime(campaign.createdAt)}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      {campaign.status === 'scheduled' && (
+                        <ConfirmDialog
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label="Cancel campaign">
+                              <X className="size-4" />
+                            </Button>
+                          }
+                          title="Cancel this scheduled campaign?"
+                          description="It will not be sent. This cannot be undone."
+                          confirmLabel="Cancel campaign"
+                          destructive
+                          onConfirm={async () => {
+                            await cancel.mutateAsync(campaign._id)
+                          }}
+                        />
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

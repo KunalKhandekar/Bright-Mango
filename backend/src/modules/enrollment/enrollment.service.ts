@@ -3,11 +3,14 @@ import { Enrollment, EnrollmentDoc } from './enrollment.model.js';
 import { Course } from '../course/course.model.js';
 import { getCourseOrThrow } from '../course/course.service.js';
 import { resolveOrCreateStudent } from '../user/user.service.js';
+import { User } from '../user/user.model.js';
 import { LessonProgress } from '../progress/lessonProgress.model.js';
 import { RecentlyWatched } from '../progress/recentlyWatched.model.js';
+import { getProgressPercentages } from '../progress/progress.service.js';
 import { deleteUserCommentsForCourse } from '../comment/comment.service.js';
 import { enqueueEmail } from '../../jobs/queues.js';
 import { auditLog } from '../audit/audit.service.js';
+import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
@@ -68,7 +71,7 @@ export async function manualEnroll(
     });
     auditLog({
       userId: mentorId,
-      action: 'ENROLLMENT_GRANTED',
+      action: AUDIT_ACTIONS.ENROLLMENT_GRANTED,
       entityType: 'Enrollment',
       entityId: enrollment._id,
       metadata: { studentId: user._id.toString(), courseId },
@@ -97,7 +100,7 @@ export async function revoke(enrollmentId: string, mentorId: string): Promise<vo
 
   auditLog({
     userId: mentorId,
-    action: 'ENROLLMENT_REVOKED',
+    action: AUDIT_ACTIONS.ENROLLMENT_REVOKED,
     entityType: 'Enrollment',
     entityId: enrollment._id,
     metadata: { studentId: enrollment.studentId.toString(), courseId: enrollment.courseId.toString() },
@@ -120,12 +123,94 @@ export async function listMyEnrollments(
   return { items, total };
 }
 
-export async function listByCourse(courseId: string, mentorId: string): Promise<EnrollmentDoc[]> {
-  const course = await getCourseOrThrow(courseId);
-  if (course.mentorId.toString() !== mentorId) {
-    throw ApiError.forbidden('You do not own this course', ErrorCode.OWNERSHIP_REQUIRED);
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Admin listing of the mentor's enrollments, optionally filtered to one course
+ * and searched by student name/email. Each row is decorated with the student's
+ * duration-weighted progress percentage for that course (batched per course —
+ * two progress queries per distinct course on the page, not per student).
+ */
+export async function listForMentor(
+  mentorId: string,
+  filter: { courseId?: string; search?: string },
+  pagination: PaginationParams,
+): Promise<{ items: unknown[]; total: number }> {
+  const query: Record<string, unknown> = { mentorId };
+  if (filter.courseId) query.courseId = filter.courseId;
+  if (filter.search) {
+    const regex = { $regex: escapeRegex(filter.search), $options: 'i' };
+    const matches = await User.find({ $or: [{ name: regex }, { email: regex }] })
+      .select('_id')
+      .limit(500)
+      .lean();
+    query.studentId = { $in: matches.map((u) => u._id) };
   }
-  return Enrollment.find({ courseId }).lean<EnrollmentDoc[]>();
+
+  const [items, total] = await Promise.all([
+    Enrollment.find(query)
+      .sort({ enrolledAt: -1 })
+      .skip(pagination.skip)
+      .limit(pagination.limit)
+      .populate({ path: 'studentId', model: User, select: 'name email avatar' })
+      .populate({ path: 'courseId', model: Course, select: 'title slug' })
+      .lean<Array<EnrollmentDoc & { progressPercentage?: number }>>(),
+    Enrollment.countDocuments(query),
+  ]);
+
+  // Decorate with progress, batching by course.
+  const byCourse = new Map<string, string[]>();
+  for (const e of items) {
+    const courseId = (e.courseId as { _id?: Types.ObjectId })._id?.toString() ?? String(e.courseId);
+    const studentId = (e.studentId as { _id?: Types.ObjectId })._id?.toString() ?? String(e.studentId);
+    const list = byCourse.get(courseId) ?? [];
+    list.push(studentId);
+    byCourse.set(courseId, list);
+  }
+  const percentages = new Map<string, number>();
+  await Promise.all(
+    [...byCourse.entries()].map(async ([courseId, studentIds]) => {
+      const perStudent = await getProgressPercentages(courseId, studentIds);
+      for (const [studentId, pct] of perStudent) percentages.set(`${courseId}:${studentId}`, pct);
+    }),
+  );
+  for (const e of items) {
+    const courseId = (e.courseId as { _id?: Types.ObjectId })._id?.toString() ?? String(e.courseId);
+    const studentId = (e.studentId as { _id?: Types.ObjectId })._id?.toString() ?? String(e.studentId);
+    e.progressPercentage = percentages.get(`${courseId}:${studentId}`) ?? 0;
+  }
+
+  return { items, total };
+}
+
+/** Total enrollments plus per-course counts (for the admin enrollments tab). */
+export async function getEnrollmentStats(
+  mentorId: string,
+): Promise<{ total: number; byCourse: Array<{ courseId: string; title: string; count: number }> }> {
+  const [total, grouped] = await Promise.all([
+    Enrollment.countDocuments({ mentorId }),
+    Enrollment.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { mentorId: new Types.ObjectId(mentorId) } },
+      { $group: { _id: '$courseId', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+    ]),
+  ]);
+
+  const courses = await Course.find({ _id: { $in: grouped.map((g) => g._id) } })
+    .select('title')
+    .lean();
+  const titleById = new Map(courses.map((c) => [c._id.toString(), c.title]));
+
+  return {
+    total,
+    byCourse: grouped.map((g) => ({
+      courseId: g._id.toString(),
+      title: titleById.get(g._id.toString()) ?? 'Deleted course',
+      count: g.count,
+    })),
+  };
 }
 
 export async function getMyEnrollment(studentId: string, courseId: string): Promise<EnrollmentDoc | null> {

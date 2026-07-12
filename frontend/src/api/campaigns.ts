@@ -1,8 +1,17 @@
 import { api, unwrap } from '@/lib/axios'
-import type { Campaign } from '@/types/models'
+import type { Campaign, CampaignAudience } from '@/types/models'
 
-export function createCampaign(input: { subject: string; body: string }) {
+export function createCampaign(input: {
+  subject: string
+  body: string
+  audience?: CampaignAudience
+  scheduledFor?: string
+}) {
   return unwrap<{ campaign: Campaign }>(api.post('/campaigns', input))
+}
+
+export function cancelCampaign(id: string) {
+  return unwrap<{ campaign: Campaign }>(api.post(`/campaigns/${id}/cancel`))
 }
 
 export function listCampaigns(params: { page?: number; limit?: number } = {}) {

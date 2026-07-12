@@ -202,15 +202,45 @@ export interface RecentlyWatchedItem {
   watchedAt: string
 }
 
+export interface CampaignAudience {
+  type: 'all' | 'course' | 'students'
+  courseId?: string
+  studentIds?: string[]
+}
+
 export interface Campaign {
   _id: string
   mentorId: string
   subject: string
   body: string
+  audience?: CampaignAudience
   totalRecipients: number
   sentCount: number
-  status: 'pending' | 'sending' | 'completed'
+  status: 'pending' | 'scheduled' | 'sending' | 'completed' | 'cancelled'
+  scheduledFor?: string
   createdAt: string
+}
+
+export interface EmailTemplate {
+  _id: string
+  name: string
+  subject: string
+  body: string
+  /** Process this template is assigned to (absent = not assigned). */
+  processKey?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface EmailProcess {
+  key: string
+  label: string
+  description: string
+  variables: string[]
+  defaultSubject: string
+  defaultBody: string
+  assignedTemplateId: string | null
+  assignedTemplateName: string | null
 }
 
 export interface AuditLog {

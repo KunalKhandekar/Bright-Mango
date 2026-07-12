@@ -45,6 +45,26 @@ export const keys = {
   recentComments: (page: number) => ['admin', 'comments', { page }] as const,
   campaigns: (page: number) => ['admin', 'campaigns', { page }] as const,
   campaign: (id: string) => ['admin', 'campaign', id] as const,
-  auditLogs: (filters: { action?: string; entityType?: string; page: number }) =>
-    ['admin', 'audit', filters] as const,
+  auditLogs: (filters: {
+    action?: string
+    entityType?: string
+    from?: string
+    to?: string
+    page: number
+  }) => ['admin', 'audit', filters] as const,
+  auditFilterOptions: ['admin', 'audit', 'options'] as const,
+  emailTemplates: (page: number) => ['admin', 'email-templates', { page }] as const,
+  emailTemplate: (id: string) => ['admin', 'email-template', id] as const,
+  emailProcesses: ['admin', 'email-processes'] as const,
+  adminEnrollments: (filters: { courseId?: string; search?: string; page: number }) =>
+    ['admin', 'enrollments', filters] as const,
+  adminEnrollmentStats: ['admin', 'enrollments', 'stats'] as const,
+  adminPaymentsSummary: (range: { from?: string; to?: string }) =>
+    ['admin', 'payments', 'summary', range] as const,
+  adminRevenueByCourse: (range: { from?: string; to?: string }) =>
+    ['admin', 'payments', 'by-course', range] as const,
+  adminRevenueSeries: (range: { from?: string; to?: string }, interval: string) =>
+    ['admin', 'payments', 'series', range, interval] as const,
+  adminOrders: (filters: { status?: string; page: number }) =>
+    ['admin', 'payments', 'orders', filters] as const,
 }

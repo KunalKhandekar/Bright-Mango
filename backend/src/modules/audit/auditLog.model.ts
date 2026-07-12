@@ -13,6 +13,7 @@ const auditLogSchema = new Schema(
 );
 
 auditLogSchema.index({ userId: 1, createdAt: -1 });
+auditLogSchema.index({ createdAt: -1 });
 auditLogSchema.index({ action: 1 });
 auditLogSchema.index({ entityType: 1, entityId: 1 });
 

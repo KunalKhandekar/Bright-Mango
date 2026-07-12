@@ -13,5 +13,6 @@ const manage = [authenticate, authorize(PERMISSIONS.CAMPAIGN_SEND)];
 router.post('/', ...manage, validate(createCampaignValidators), asyncHandler(ctrl.create));
 router.get('/', ...manage, asyncHandler(ctrl.list));
 router.get('/:id', ...manage, validate(campaignIdParam), asyncHandler(ctrl.getOne));
+router.post('/:id/cancel', ...manage, validate(campaignIdParam), asyncHandler(ctrl.cancel));
 
 export default router;

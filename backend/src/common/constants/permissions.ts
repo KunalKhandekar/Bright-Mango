@@ -36,6 +36,10 @@ export const PERMISSIONS = {
   // Coupons & marketing
   COUPON_MANAGE: 'coupon:manage',
   CAMPAIGN_SEND: 'campaign:send',
+  EMAIL_TEMPLATE_MANAGE: 'email_template:manage',
+
+  // Payments & income
+  PAYMENT_VIEW_ALL: 'payment:view_all',
 
   // Audit
   AUDIT_VIEW: 'audit:view',
@@ -65,6 +69,8 @@ const MENTOR_PERMISSIONS: Permission[] = [
   PERMISSIONS.COMMENT_REPLY,
   PERMISSIONS.COUPON_MANAGE,
   PERMISSIONS.CAMPAIGN_SEND,
+  PERMISSIONS.EMAIL_TEMPLATE_MANAGE,
+  PERMISSIONS.PAYMENT_VIEW_ALL,
   PERMISSIONS.AUDIT_VIEW,
 ];
 

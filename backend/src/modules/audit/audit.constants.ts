@@ -1,0 +1,35 @@
+/**
+ * Central registry of audit action codes and entity types. Every auditLog() call
+ * must use a constant from here — the AuditAction type makes tsc reject stray
+ * literals, and the admin UI filter dropdown is served from this list.
+ */
+export const AUDIT_ACTIONS = {
+  STUDENT_BANNED: 'STUDENT_BANNED',
+  STUDENT_UNBANNED: 'STUDENT_UNBANNED',
+  EMAIL_BLACKLISTED: 'EMAIL_BLACKLISTED',
+  EMAIL_UNBLACKLISTED: 'EMAIL_UNBLACKLISTED',
+  COURSE_DELETE_SCHEDULED: 'COURSE_DELETE_SCHEDULED',
+  COURSE_DELETE_CANCELLED: 'COURSE_DELETE_CANCELLED',
+  CAMPAIGN_SENT: 'CAMPAIGN_SENT',
+  CAMPAIGN_SCHEDULED: 'CAMPAIGN_SCHEDULED',
+  CAMPAIGN_CANCELLED: 'CAMPAIGN_CANCELLED',
+  ENROLLMENT_GRANTED: 'ENROLLMENT_GRANTED',
+  ENROLLMENT_REVOKED: 'ENROLLMENT_REVOKED',
+  COUPON_CREATED: 'COUPON_CREATED',
+  EMAIL_TEMPLATE_CREATED: 'EMAIL_TEMPLATE_CREATED',
+  EMAIL_TEMPLATE_UPDATED: 'EMAIL_TEMPLATE_UPDATED',
+  EMAIL_TEMPLATE_DELETED: 'EMAIL_TEMPLATE_DELETED',
+  EMAIL_TEMPLATE_ASSIGNED: 'EMAIL_TEMPLATE_ASSIGNED',
+} as const;
+
+export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
+
+export const AUDIT_ENTITY_TYPES = [
+  'User',
+  'EmailBlacklist',
+  'Course',
+  'Enrollment',
+  'Coupon',
+  'EmailCampaign',
+  'EmailTemplate',
+] as const;

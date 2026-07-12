@@ -5,8 +5,22 @@ import { getPagination, buildPaginationMeta } from '../../common/utils/paginatio
 import * as emailService from './email.service.js';
 
 export async function create(req: Request, res: Response): Promise<Response> {
-  const campaign = await emailService.createCampaign(req.auth!.userId, req.body.subject, req.body.body);
-  return ApiResponse.created(res, 'Campaign queued', { campaign });
+  const campaign = await emailService.createCampaign(req.auth!.userId, {
+    subject: req.body.subject,
+    body: req.body.body,
+    audience: req.body.audience,
+    scheduledFor: req.body.scheduledFor ? new Date(req.body.scheduledFor) : undefined,
+  });
+  return ApiResponse.created(
+    res,
+    campaign.status === 'scheduled' ? 'Campaign scheduled' : 'Campaign queued',
+    { campaign },
+  );
+}
+
+export async function cancel(req: Request, res: Response): Promise<Response> {
+  const campaign = await emailService.cancelCampaign(req.params.id, req.auth!.userId);
+  return ApiResponse.ok(res, 'Campaign cancelled', { campaign });
 }
 
 export async function list(req: Request, res: Response): Promise<Response> {

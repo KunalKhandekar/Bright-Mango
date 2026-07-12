@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
+  BookOpenCheck,
+  FileCode2,
   GraduationCap,
+  IndianRupee,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -26,9 +29,12 @@ const NAV_ITEMS = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/admin/courses', label: 'Courses', icon: BookOpen },
   { to: '/admin/students', label: 'Students', icon: Users },
+  { to: '/admin/enrollments', label: 'Enrollments', icon: BookOpenCheck },
   { to: '/admin/coupons', label: 'Coupons', icon: TicketPercent },
+  { to: '/admin/payments', label: 'Income', icon: IndianRupee },
   { to: '/admin/comments', label: 'Comments', icon: MessageSquare },
   { to: '/admin/campaigns', label: 'Campaigns', icon: Mail },
+  { to: '/admin/email-templates', label: 'Email templates', icon: FileCode2 },
   { to: '/admin/audit', label: 'Audit log', icon: ScrollText },
   { to: '/admin/settings', label: 'Settings', icon: Settings },
 ]

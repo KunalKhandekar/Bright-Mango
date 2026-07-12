@@ -4,6 +4,7 @@ import { EmailBlacklist } from './emailBlacklist.model.js';
 import { Enrollment } from '../enrollment/enrollment.model.js';
 import { destroyAllSessions } from '../auth/session.service.js';
 import { auditLog } from '../audit/audit.service.js';
+import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import { ROLES } from '../../common/constants/roles.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { normalizeEmail } from '../../common/utils/otp.util.js';
@@ -60,13 +61,13 @@ export async function banStudent(mentorId: string, studentId: string): Promise<v
   await assertStudent(studentId);
   await User.updateOne({ _id: studentId }, { $set: { status: 'banned' } });
   await destroyAllSessions(studentId); // immediate force-logout
-  auditLog({ userId: mentorId, action: 'STUDENT_BANNED', entityType: 'User', entityId: undefined, metadata: { studentId } });
+  auditLog({ userId: mentorId, action: AUDIT_ACTIONS.STUDENT_BANNED, entityType: 'User', entityId: undefined, metadata: { studentId } });
 }
 
 export async function unbanStudent(mentorId: string, studentId: string): Promise<void> {
   await assertStudent(studentId);
   await User.updateOne({ _id: studentId }, { $set: { status: 'active' } });
-  auditLog({ userId: mentorId, action: 'STUDENT_UNBANNED', entityType: 'User', entityId: undefined, metadata: { studentId } });
+  auditLog({ userId: mentorId, action: AUDIT_ACTIONS.STUDENT_UNBANNED, entityType: 'User', entityId: undefined, metadata: { studentId } });
 }
 
 export async function listStudentEnrollments(studentId: string): Promise<unknown[]> {
@@ -90,13 +91,13 @@ export async function blacklistEmail(
     await User.updateOne({ _id: user._id }, { $set: { status: 'banned' } });
     await destroyAllSessions(user._id.toString());
   }
-  auditLog({ userId: mentorId, action: 'EMAIL_BLACKLISTED', entityType: 'EmailBlacklist', metadata: { email } });
+  auditLog({ userId: mentorId, action: AUDIT_ACTIONS.EMAIL_BLACKLISTED, entityType: 'EmailBlacklist', metadata: { email } });
 }
 
 export async function removeFromBlacklist(mentorId: string, rawEmail: string): Promise<void> {
   const email = normalizeEmail(rawEmail);
   await EmailBlacklist.deleteOne({ email });
-  auditLog({ userId: mentorId, action: 'EMAIL_UNBLACKLISTED', entityType: 'EmailBlacklist', metadata: { email } });
+  auditLog({ userId: mentorId, action: AUDIT_ACTIONS.EMAIL_UNBLACKLISTED, entityType: 'EmailBlacklist', metadata: { email } });
 }
 
 export async function listBlacklist() {

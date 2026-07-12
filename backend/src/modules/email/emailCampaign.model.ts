@@ -4,10 +4,23 @@ const emailCampaignSchema = new Schema(
   {
     mentorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     subject: { type: String, required: true },
-    body: { type: String, required: true }, // may contain {{name}}, {{progress}} tokens
+    body: { type: String, required: true }, // may contain {{name}}, {{email}} tokens
+    audience: {
+      type: { type: String, enum: ['all', 'course', 'students'], default: 'all', required: true },
+      courseId: { type: Schema.Types.ObjectId, ref: 'Course' },
+      studentIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+    },
     totalRecipients: { type: Number, default: 0 },
     sentCount: { type: Number, default: 0 },
-    status: { type: String, enum: ['pending', 'sending', 'completed'], default: 'pending' },
+    status: {
+      type: String,
+      enum: ['pending', 'scheduled', 'sending', 'completed', 'cancelled'],
+      default: 'pending',
+    },
+    /** UTC instant a scheduled campaign dispatches at. */
+    scheduledFor: { type: Date },
+    /** BullMQ delayed-job id, persisted so a scheduled dispatch can be cancelled. */
+    scheduleJobId: { type: String },
   },
   { timestamps: { createdAt: true, updatedAt: true } },
 );

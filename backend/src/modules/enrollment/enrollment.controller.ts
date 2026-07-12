@@ -14,6 +14,24 @@ export async function getMine(req: Request, res: Response): Promise<Response> {
   return ApiResponse.ok(res, 'Enrollment', { enrollment, hasAccess: enrollment !== null });
 }
 
+export async function listAll(req: Request, res: Response): Promise<Response> {
+  const pagination = getPagination(req);
+  const { items, total } = await enrollmentService.listForMentor(
+    req.auth!.userId,
+    {
+      courseId: typeof req.query.courseId === 'string' ? req.query.courseId : undefined,
+      search: typeof req.query.search === 'string' ? req.query.search : undefined,
+    },
+    pagination,
+  );
+  return ApiResponse.ok(res, 'Enrollments', { enrollments: items }, buildPaginationMeta(total, pagination));
+}
+
+export async function stats(req: Request, res: Response): Promise<Response> {
+  const result = await enrollmentService.getEnrollmentStats(req.auth!.userId);
+  return ApiResponse.ok(res, 'Enrollment stats', result);
+}
+
 export async function manual(req: Request, res: Response): Promise<Response> {
   const enrollment = await enrollmentService.manualEnroll(req.auth!.userId, req.body.email, req.body.courseId);
   return ApiResponse.created(res, 'Student enrolled', { enrollment });

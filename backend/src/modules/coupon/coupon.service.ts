@@ -3,6 +3,7 @@ import { Coupon, CouponDoc } from './coupon.model.js';
 import { CouponUsage } from './couponUsage.model.js';
 import { assertCourseOwner } from '../course/course.service.js';
 import { auditLog } from '../audit/audit.service.js';
+import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 
@@ -27,7 +28,7 @@ export async function createCoupon(mentorId: string, input: CouponInput): Promis
     usageLimit: input.usageLimit ?? 0,
     expiresAt: input.expiresAt ? new Date(input.expiresAt) : undefined,
   });
-  auditLog({ userId: mentorId, action: 'COUPON_CREATED', entityType: 'Coupon', entityId: coupon._id });
+  auditLog({ userId: mentorId, action: AUDIT_ACTIONS.COUPON_CREATED, entityType: 'Coupon', entityId: coupon._id });
   return coupon.toObject() as CouponDoc;
 }
 

@@ -132,6 +132,44 @@ export async function getCourseProgress(studentId: string, courseId: string): Pr
   };
 }
 
+/**
+ * Duration-weighted course progress percentage for a batch of students in one
+ * course (two queries total, vs 2×N calls to getCourseProgress). Uses the same
+ * math as getCourseProgress: completed lessons count as full duration and
+ * zero-duration (still encoding) lessons are excluded.
+ */
+export async function getProgressPercentages(
+  courseId: string,
+  studentIds: string[],
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (studentIds.length === 0) return result;
+
+  const [lessons, progresses] = await Promise.all([
+    Lesson.find({ courseId }).select('durationSeconds').lean<{ _id: unknown; durationSeconds: number }[]>(),
+    LessonProgress.find({ courseId, studentId: { $in: studentIds } }).lean<LessonProgressDoc[]>(),
+  ]);
+
+  const durationById = new Map(lessons.map((l) => [String(l._id), l.durationSeconds || 0]));
+  let totalDuration = 0;
+  for (const duration of durationById.values()) totalDuration += duration;
+
+  const watchedByStudent = new Map<string, number>();
+  for (const p of progresses) {
+    const duration = durationById.get(p.lessonId.toString()) ?? 0;
+    if (duration <= 0) continue;
+    const watched = p.completed ? duration : Math.min(p.watchedSeconds ?? 0, duration);
+    const key = p.studentId.toString();
+    watchedByStudent.set(key, (watchedByStudent.get(key) ?? 0) + watched);
+  }
+
+  for (const id of studentIds) {
+    const watched = watchedByStudent.get(id) ?? 0;
+    result.set(id, totalDuration > 0 ? Math.min(100, Math.round((watched / totalDuration) * 100)) : 0);
+  }
+  return result;
+}
+
 export async function getRecentlyWatched(studentId: string): Promise<unknown[]> {
   return RecentlyWatched.find({ studentId })
     .sort({ watchedAt: -1 })

@@ -117,7 +117,7 @@ export async function requestOtp(rawEmail: string, _ctx: RequestContext): Promis
   }
 
   await enqueueEmail({
-    type: 'otp',
+    type: 'login-otp',
     to: email,
     otp,
     ttlMinutes: Math.round(env.otpTtlSeconds / 60),

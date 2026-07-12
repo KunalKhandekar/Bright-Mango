@@ -5,6 +5,8 @@ import { ErrorCode } from '../../common/http/errorCodes.js';
 import { verifyWebhookSignature } from '../../integrations/razorpay.service.js';
 import { logger } from '../../common/utils/logger.js';
 import * as paymentService from './payment.service.js';
+import * as analytics from './payment.analytics.service.js';
+import { getPagination, buildPaginationMeta } from '../../common/utils/pagination.util.js';
 
 export async function createOrder(req: Request, res: Response): Promise<Response> {
   const data = await paymentService.createOrder(req.auth!.userId, req.body.courseId, req.body.couponCode);
@@ -23,6 +25,49 @@ export async function verify(req: Request, res: Response): Promise<Response> {
 export async function myOrders(req: Request, res: Response): Promise<Response> {
   const orders = await paymentService.getMyOrders(req.auth!.userId);
   return ApiResponse.ok(res, 'Your orders', { orders });
+}
+
+// ── Admin income analytics ──────────────────────────────────────────────────────
+
+/** Parse from/to query params, defaulting to the last 30 days. */
+function parseRange(req: Request): analytics.DateRange {
+  const to = typeof req.query.to === 'string' ? new Date(req.query.to) : new Date();
+  const from =
+    typeof req.query.from === 'string'
+      ? new Date(req.query.from)
+      : new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+  return { from, to };
+}
+
+export async function analyticsSummary(req: Request, res: Response): Promise<Response> {
+  const summary = await analytics.getSummary(req.auth!.userId, parseRange(req));
+  return ApiResponse.ok(res, 'Income summary', { summary });
+}
+
+export async function analyticsByCourse(req: Request, res: Response): Promise<Response> {
+  const courses = await analytics.getRevenueByCourse(req.auth!.userId, parseRange(req));
+  return ApiResponse.ok(res, 'Revenue by course', { courses });
+}
+
+export async function analyticsTimeseries(req: Request, res: Response): Promise<Response> {
+  const interval = req.query.interval === 'month' ? 'month' : 'day';
+  const points = await analytics.getRevenueTimeseries(req.auth!.userId, parseRange(req), interval);
+  return ApiResponse.ok(res, 'Revenue over time', { points, interval });
+}
+
+export async function adminOrders(req: Request, res: Response): Promise<Response> {
+  const pagination = getPagination(req);
+  const status = req.query.status;
+  const { items, total } = await analytics.listOrdersForMentor(
+    req.auth!.userId,
+    {
+      status:
+        status === 'pending' || status === 'paid' || status === 'failed' ? status : undefined,
+      courseId: typeof req.query.courseId === 'string' ? req.query.courseId : undefined,
+    },
+    pagination,
+  );
+  return ApiResponse.ok(res, 'Orders', { orders: items }, buildPaginationMeta(total, pagination));
 }
 
 /**
