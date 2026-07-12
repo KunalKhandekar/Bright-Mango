@@ -12,29 +12,35 @@ import { getDashboardSummary } from '@/api/dashboard'
 import { getPaymentsSummary } from '@/api/payments'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { formatPrice } from '@/lib/format'
 import { keys } from '@/lib/query-client'
 import type { IsoDateRange } from '@/features/admin/shared/chart'
 
 /**
- * Uniform KPI card: icon tile | value / label / sublabel. The sublabel row is
- * always rendered (min-h reserves its line) so every card keeps the same
- * internal geometry whether or not it has helper text.
+ * Uniform KPI card: icon tile | large metric / small label. Two rows in every
+ * card — context that doesn't fit this hierarchy goes into `hint` (a hover
+ * tooltip), never a third text line.
  */
 function StatCard({
   icon: Icon,
   label,
   value,
-  sublabel,
+  hint,
   to,
 }: {
   icon: LucideIcon
   label: string
   value: string | undefined
-  sublabel?: string
+  hint?: string
   to: string
 }) {
-  return (
+  const card = (
     <Link to={to}>
       <Card className="hover:bg-accent/40 h-full transition-colors">
         <CardContent className="flex h-full items-center gap-4">
@@ -48,13 +54,20 @@ function StatCard({
               <p className="truncate text-2xl leading-7 font-semibold tabular-nums">{value}</p>
             )}
             <p className="text-muted-foreground truncate text-sm leading-5">{label}</p>
-            <p className="text-muted-foreground/70 min-h-4 truncate text-xs leading-4">
-              {sublabel}
-            </p>
           </div>
         </CardContent>
       </Card>
     </Link>
+  )
+
+  if (!hint) return card
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>{card}</TooltipTrigger>
+        <TooltipContent>{hint}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   )
 }
 
@@ -85,7 +98,6 @@ export function OverviewStatCards({
         icon={BookOpen}
         label="Courses"
         value={summary && String(summary.courses)}
-        sublabel={summary && `${summary.publishedCourses} published`}
         to="/admin/courses"
       />
       <StatCard
@@ -98,14 +110,13 @@ export function OverviewStatCards({
         icon={GraduationCap}
         label="Enrollments"
         value={summary && String(summary.enrollments)}
-        sublabel={summary && `+${summary.newEnrollments30d} in last 30 days`}
         to="/admin/enrollments"
       />
       <StatCard
         icon={IndianRupee}
         label="Net revenue"
         value={payments && formatPrice(payments.netRevenue)}
-        sublabel={rangeLabel}
+        hint={rangeLabel}
         to="/admin/payments"
       />
       <StatCard
