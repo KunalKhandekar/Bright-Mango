@@ -1,4 +1,5 @@
 import { Types } from 'mongoose';
+import { env } from '../../config/env.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { enqueueCourseDeletion, removeCourseDeletion, enqueueEmail } from '../../jobs/queues.js';
 import { requestActionOtp, verifyActionOtp } from '../auth/otp.service.js';
@@ -9,7 +10,7 @@ import { Course } from './course.model.js';
 import { CourseDeletionRequest } from './courseDeletionRequest.model.js';
 
 const PURPOSE = 'course_delete';
-const DELAY_MS = 24 * 60 * 60 * 1000;
+const DELAY_MS = env.courseDeleteDelayMinutes * 60 * 1000;
 
 /** Step 1 — mentor requests deletion; OTP emailed to the mentor. */
 export async function requestCourseDeletion(
@@ -28,7 +29,7 @@ export async function requestCourseDeletion(
   });
 }
 
-/** Step 2 — verify OTP, schedule the 24h delayed deletion, flip status. */
+/** Step 2 — verify OTP, schedule the delayed deletion (COURSE_DELETE_DELAY_MINUTES), flip status. */
 export async function confirmCourseDeletion(
   courseId: string,
   mentorId: string,
@@ -60,7 +61,7 @@ export async function confirmCourseDeletion(
   return { executeAt };
 }
 
-/** Cancel a pending deletion before the 24h window elapses. */
+/** Cancel a pending deletion before the delay window elapses. */
 export async function cancelCourseDeletion(courseId: string, mentorId: string): Promise<void> {
   await assertCourseOwner(courseId, mentorId);
   const req = await CourseDeletionRequest.findOne({ courseId, status: 'scheduled' });

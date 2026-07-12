@@ -42,7 +42,7 @@ export async function removeCampaignDispatch(jobId: string): Promise<void> {
   if (job) await job.remove();
 }
 
-/** Schedule a course hard-delete 24h out (OTP-protected deletion request). Returns job id. */
+/** Schedule a delayed course hard-delete (OTP-protected deletion request). Returns job id. */
 export async function enqueueCourseDeletion(courseId: string, delayMs: number): Promise<string> {
   const job = await courseDeleteQueue.add('delete', { courseId }, { delay: delayMs });
   return job.id!;

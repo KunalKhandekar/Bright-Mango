@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Types } from 'mongoose';
+import { env } from '../../config/env.js';
 import { ApiResponse } from '../../common/http/ApiResponse.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { getPagination, buildPaginationMeta } from '../../common/utils/pagination.util.js';
@@ -79,7 +80,10 @@ export async function confirmDelete(req: Request, res: Response): Promise<Respon
     email,
     req.body.otp,
   );
-  return ApiResponse.ok(res, 'Course scheduled for deletion in 24 hours', { executeAt });
+  const mins = env.courseDeleteDelayMinutes;
+  const delay =
+    mins % 60 === 0 ? `${mins / 60} hour${mins === 60 ? '' : 's'}` : `${mins} minutes`;
+  return ApiResponse.ok(res, `Course scheduled for deletion in ${delay}`, { executeAt });
 }
 
 export async function cancelDelete(req: Request, res: Response): Promise<Response> {

@@ -20,7 +20,7 @@ const courseSchema = new Schema(
 
     publishedAt: { type: Date },
 
-    // When set, the moment the scheduled hard-delete will run (24h after confirm).
+    // When set, the moment the scheduled hard-delete will run (COURSE_DELETE_DELAY_MINUTES after confirm).
     // Cleared on cancel; drives the countdown banner in the mentor UI.
     scheduledDeleteAt: { type: Date, default: null },
   },

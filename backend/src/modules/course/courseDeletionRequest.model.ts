@@ -1,6 +1,6 @@
 import { Schema, model, InferSchemaType, Types } from 'mongoose';
 
-/** OTP-protected, 24h-delayed course deletion request. */
+/** OTP-protected, delayed course deletion request (COURSE_DELETE_DELAY_MINUTES). */
 const courseDeletionRequestSchema = new Schema(
   {
     courseId: { type: Schema.Types.ObjectId, ref: 'Course', required: true },

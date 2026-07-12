@@ -69,6 +69,7 @@ export const env = {
   otpMaxAttempts: int('OTP_MAX_ATTEMPTS', 5),
   studentMaxSessions: int('STUDENT_MAX_SESSIONS', 2),
   trustedDeviceTtlSeconds: int('TRUSTED_DEVICE_TTL_DAYS', 7) * 24 * 60 * 60,
+  courseDeleteDelayMinutes: int('COURSE_DELETE_DELAY_MINUTES', 24 * 60),
 
   seedMentorEmail: optional('SEED_MENTOR_EMAIL', 'mentor@brightmango.in'),
   seedMentorName: optional('SEED_MENTOR_NAME', 'BrightMango Mentor'),
