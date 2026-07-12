@@ -16,6 +16,11 @@ import { formatPrice } from '@/lib/format'
 import { keys } from '@/lib/query-client'
 import type { IsoDateRange } from '@/features/admin/shared/chart'
 
+/**
+ * Uniform KPI card: icon tile | value / label / sublabel. The sublabel row is
+ * always rendered (min-h reserves its line) so every card keeps the same
+ * internal geometry whether or not it has helper text.
+ */
 function StatCard({
   icon: Icon,
   label,
@@ -32,18 +37,20 @@ function StatCard({
   return (
     <Link to={to}>
       <Card className="hover:bg-accent/40 h-full transition-colors">
-        <CardContent className="flex items-center gap-4">
+        <CardContent className="flex h-full items-center gap-4">
           <div className="bg-primary/10 flex size-11 shrink-0 items-center justify-center rounded-lg">
             <Icon className="text-primary size-5" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             {value === undefined ? (
               <Skeleton className="h-7 w-14" />
             ) : (
-              <p className="truncate text-2xl font-semibold tabular-nums">{value}</p>
+              <p className="truncate text-2xl leading-7 font-semibold tabular-nums">{value}</p>
             )}
-            <p className="text-muted-foreground truncate text-sm">{label}</p>
-            {sublabel && <p className="text-muted-foreground/70 truncate text-xs">{sublabel}</p>}
+            <p className="text-muted-foreground truncate text-sm leading-5">{label}</p>
+            <p className="text-muted-foreground/70 min-h-4 truncate text-xs leading-4">
+              {sublabel}
+            </p>
           </div>
         </CardContent>
       </Card>
