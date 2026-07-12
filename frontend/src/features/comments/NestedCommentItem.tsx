@@ -153,7 +153,9 @@ export function NestedCommentItem({
               {lessonTitle(comment) && <span>{lessonTitle(comment)}</span>}
               {lessonHref && (
                 <Button asChild variant="link" size="sm" className="h-auto p-0 text-xs">
-                  <Link to={lessonHref}>View lesson</Link>
+                  <Link to={lessonHref} target="_blank" rel="noopener">
+                    View lesson
+                  </Link>
                 </Button>
               )}
             </div>

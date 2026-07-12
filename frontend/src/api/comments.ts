@@ -34,8 +34,23 @@ export function deleteComment(id: string) {
 
 // ── Mentor ──────────────────────────────────────────────────────────────────
 
-export function listRecentComments(params: { page?: number; limit?: number } = {}) {
-  return unwrap<{ comments: CommentNode[] }>(api.get('/comments/recent', { params }))
+export interface RecentCommentsParams {
+  page?: number
+  limit?: number
+  courseId?: string
+  studentId?: string
+  q?: string
+  unanswered?: boolean
+  sort?: 'newest' | 'oldest'
+}
+
+export function listRecentComments(params: RecentCommentsParams = {}) {
+  return unwrap<{ comments: CommentNode[] }>(
+    api.get('/comments/recent', {
+      // Only send unanswered when on — the backend treats presence-of-'true' as the flag.
+      params: { ...params, unanswered: params.unanswered ? true : undefined },
+    }),
+  )
 }
 
 export function replyToComment(id: string, content: string) {

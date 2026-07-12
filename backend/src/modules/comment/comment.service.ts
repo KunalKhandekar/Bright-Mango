@@ -3,11 +3,13 @@ import { Comment, CommentDoc } from './comment.model.js';
 import { getLessonOrThrow } from '../lesson/lesson.service.js';
 import { Lesson } from '../lesson/lesson.model.js';
 import { User } from '../user/user.model.js';
+import { Course } from '../course/course.model.js';
 import { enqueueEmail } from '../../jobs/queues.js';
 import { ROLES, Role } from '../../common/constants/roles.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
+import { escapeRegex } from '../../common/utils/regex.util.js';
 import { env } from '../../config/env.js';
 
 const AUTHOR_POPULATE = { path: 'userId', select: 'name avatar role' };
@@ -188,19 +190,52 @@ export async function deleteUserCommentsForCourse(userId: string, courseId: stri
   });
 }
 
+export interface RecentCommentsFilter {
+  courseId?: string;
+  studentId?: string;
+  q?: string;
+  unanswered?: boolean;
+  sort?: 'newest' | 'oldest';
+}
+
+/**
+ * Admin moderation listing: TOP-LEVEL comments on the mentor's own courses,
+ * newest first by default. `q` searches top-level comment text only (escaped
+ * case-insensitive regex); reply text is not searched. `unanswered` means
+ * "no direct replies from anyone", not specifically "no mentor reply".
+ */
 export async function listRecent(
+  mentorId: string,
+  filter: RecentCommentsFilter,
   pagination: PaginationParams,
 ): Promise<{ items: unknown[]; total: number }> {
+  const ownedCourses = await Course.find({ mentorId }).select('_id').lean();
+  const ownedIds = ownedCourses.map((c) => c._id);
+
+  const query: Record<string, unknown> = { parentCommentId: null };
+  if (filter.courseId) {
+    if (!ownedIds.some((id) => id.toString() === filter.courseId)) {
+      throw ApiError.forbidden('You do not own this course', ErrorCode.OWNERSHIP_REQUIRED);
+    }
+    query.courseId = filter.courseId;
+  } else {
+    query.courseId = { $in: ownedIds };
+  }
+  if (filter.studentId) query.userId = filter.studentId;
+  if (filter.q) query.content = { $regex: escapeRegex(filter.q), $options: 'i' };
+  if (filter.unanswered) query.directReplyCount = 0;
+
+  const dir = filter.sort === 'oldest' ? 1 : -1;
   const [items, total] = await Promise.all([
-    Comment.find({})
-      .sort({ createdAt: -1 })
+    Comment.find(query)
+      .sort({ createdAt: dir, _id: dir })
       .skip(pagination.skip)
       .limit(pagination.limit)
       .populate({ path: 'userId', select: 'name email avatar' })
       .populate({ path: 'lessonId', select: 'title courseId' })
       .populate({ path: 'courseId', select: 'title slug' })
       .lean(),
-    Comment.estimatedDocumentCount(),
+    Comment.countDocuments(query),
   ]);
   return { items, total };
 }

@@ -42,7 +42,14 @@ export const keys = {
   adminStudentEnrollments: (id: string) => ['admin', 'student', id, 'enrollments'] as const,
   adminStudentSessions: (id: string) => ['admin', 'student', id, 'sessions'] as const,
   coupons: ['coupons'] as const,
-  recentComments: (page: number) => ['admin', 'comments', { page }] as const,
+  recentComments: (filters: {
+    courseId?: string
+    studentId?: string
+    q?: string
+    unanswered?: boolean
+    sort?: string
+    page: number
+  }) => ['admin', 'comments', filters] as const,
   campaigns: (page: number) => ['admin', 'campaigns', { page }] as const,
   campaign: (id: string) => ['admin', 'campaign', id] as const,
   auditLogs: (filters: {

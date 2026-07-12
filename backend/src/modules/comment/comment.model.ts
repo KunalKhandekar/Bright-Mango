@@ -20,6 +20,7 @@ commentSchema.index({ lessonId: 1, parentCommentId: 1, createdAt: 1 });
 commentSchema.index({ courseId: 1, createdAt: -1 });
 commentSchema.index({ ancestorIds: 1 });
 commentSchema.index({ rootCommentId: 1, createdAt: 1 });
+commentSchema.index({ userId: 1, createdAt: -1 }); // admin moderation filter by student
 
 export type CommentDoc = InferSchemaType<typeof commentSchema> & { _id: Types.ObjectId };
 

@@ -52,6 +52,16 @@ export async function reply(req: Request, res: Response): Promise<Response> {
 
 export async function recent(req: Request, res: Response): Promise<Response> {
   const pagination = getPagination(req);
-  const { items, total } = await commentService.listRecent(pagination);
+  const { items, total } = await commentService.listRecent(
+    req.auth!.userId,
+    {
+      courseId: typeof req.query.courseId === 'string' ? req.query.courseId : undefined,
+      studentId: typeof req.query.studentId === 'string' ? req.query.studentId : undefined,
+      q: typeof req.query.q === 'string' ? req.query.q : undefined,
+      unanswered: req.query.unanswered === 'true',
+      sort: req.query.sort === 'oldest' ? 'oldest' : 'newest',
+    },
+    pagination,
+  );
   return ApiResponse.ok(res, 'Recent comments', { comments: items }, buildPaginationMeta(total, pagination));
 }

@@ -14,6 +14,7 @@ import {
   createCommentValidators,
   updateCommentValidators,
   replyValidators,
+  listRecentValidators,
 } from './comment.validation.js';
 
 const router = Router();
@@ -25,7 +26,13 @@ const enrollForLesson = requireEnrollment(async (req) => {
 const enrollForComment = requireEnrollment((req) => getCommentCourseId(req.params.id));
 
 // Mentor dashboard — recent comments across all lessons (declared before '/:lessonId').
-router.get('/recent', authenticate, authorize(PERMISSIONS.COMMENT_MODERATE), asyncHandler(ctrl.recent));
+router.get(
+  '/recent',
+  authenticate,
+  authorize(PERMISSIONS.COMMENT_MODERATE),
+  validate(listRecentValidators),
+  asyncHandler(ctrl.recent),
+);
 
 // Lesson comment threads (enrollment-gated)
 router.get('/lessons/:lessonId', authenticate, validate(lessonIdParam), enrollForLesson, asyncHandler(ctrl.list));

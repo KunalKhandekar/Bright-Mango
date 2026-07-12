@@ -14,6 +14,7 @@ import { AUDIT_ACTIONS } from '../audit/audit.constants.js';
 import { ApiError } from '../../common/http/ApiError.js';
 import { ErrorCode } from '../../common/http/errorCodes.js';
 import { PaginationParams } from '../../common/utils/pagination.util.js';
+import { escapeRegex } from '../../common/utils/regex.util.js';
 import { env } from '../../config/env.js';
 
 /** Single source of truth for content access — used by the requireEnrollment middleware. */
@@ -121,10 +122,6 @@ export async function listMyEnrollments(
     Enrollment.countDocuments({ studentId }),
   ]);
   return { items, total };
-}
-
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
