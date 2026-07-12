@@ -54,7 +54,7 @@ export function publishCourse(id: string) {
 }
 
 export function requestCourseDeletion(id: string) {
-  return unwrap<Record<string, never>>(api.post(`/courses/${id}/delete/request`))
+  return unwrap<{ delayMinutes: number }>(api.post(`/courses/${id}/delete/request`))
 }
 
 export function confirmCourseDeletion(id: string, otp: string) {

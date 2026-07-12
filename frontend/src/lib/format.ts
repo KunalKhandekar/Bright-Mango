@@ -63,6 +63,15 @@ export function formatDateTimeWithSeconds(value: string | Date): string {
   })
 }
 
+/** Human label for a minute span, e.g. 1440 → "24 hours", 60 → "1 hour", 90 → "90 minutes". */
+export function formatMinutesWindow(minutes: number): string {
+  if (minutes % 60 === 0) {
+    const h = minutes / 60
+    return `${h} hour${h === 1 ? '' : 's'}`
+  }
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`
+}
+
 /** Break a positive millisecond span into a "23h 59m 58s" style countdown label. */
 export function formatCountdown(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000))

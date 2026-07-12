@@ -69,7 +69,9 @@ async function mentorEmail(userId: string): Promise<string> {
 export async function requestDelete(req: Request, res: Response): Promise<Response> {
   const email = await mentorEmail(req.auth!.userId);
   await deletionService.requestCourseDeletion(req.params.id, req.auth!.userId, email);
-  return ApiResponse.ok(res, 'Confirmation code sent to your email');
+  return ApiResponse.ok(res, 'Confirmation code sent to your email', {
+    delayMinutes: env.courseDeleteDelayMinutes,
+  });
 }
 
 export async function confirmDelete(req: Request, res: Response): Promise<Response> {

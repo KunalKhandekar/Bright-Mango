@@ -36,7 +36,10 @@ export async function confirmCourseDeletion(
   mentorEmail: string,
   otp: string,
 ): Promise<{ executeAt: Date }> {
-  await assertCourseOwner(courseId, mentorId);
+  const course = await assertCourseOwner(courseId, mentorId);
+  if (course.status === 'scheduled_delete') {
+    throw ApiError.conflict('CONFLICT', 'This course is already scheduled for deletion');
+  }
   await verifyActionOtp(mentorEmail, `${PURPOSE}:${courseId}`, otp);
 
   const executeAt = new Date(Date.now() + DELAY_MS);
@@ -48,6 +51,7 @@ export async function confirmCourseDeletion(
     jobId,
     executeAt,
     status: 'scheduled',
+    previousStatus: course.status,
   });
   await setStatus(courseId, 'scheduled_delete');
   await Course.updateOne({ _id: courseId }, { $set: { scheduledDeleteAt: executeAt } });
@@ -70,7 +74,9 @@ export async function cancelCourseDeletion(courseId: string, mentorId: string): 
   if (req.jobId) await removeCourseDeletion(req.jobId);
   req.status = 'cancelled';
   await req.save();
-  await setStatus(courseId, 'draft');
+  // Restore the status the course had before deletion was scheduled ('draft'
+  // for legacy requests created before previousStatus existed).
+  await setStatus(courseId, req.previousStatus ?? 'draft');
   await Course.updateOne({ _id: courseId }, { $set: { scheduledDeleteAt: null } });
   auditLog({
     userId: mentorId,

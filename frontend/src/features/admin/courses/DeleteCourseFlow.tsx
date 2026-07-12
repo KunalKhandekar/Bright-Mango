@@ -18,7 +18,12 @@ import {
 } from '@/components/ui/dialog'
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp'
 import { errorMessage } from '@/lib/error-messages'
-import { formatCountdown, formatDateTime, formatDateTimeWithSeconds } from '@/lib/format'
+import {
+  formatCountdown,
+  formatDateTime,
+  formatDateTimeWithSeconds,
+  formatMinutesWindow,
+} from '@/lib/format'
 import type { Course } from '@/types/models'
 
 /** Live-ticking countdown to the scheduled deletion moment. */
@@ -59,7 +64,7 @@ export function DeletionScheduledBanner({ course }: { course: Course }) {
           {course.scheduledDeleteAt ? (
             <DeletionCountdown executeAt={course.scheduledDeleteAt} />
           ) : (
-            'It will be permanently removed within 24 hours unless you cancel.'
+            'It will be permanently removed soon unless you cancel.'
           )}
         </p>
       </div>
@@ -96,6 +101,7 @@ export function DeleteCourseButton({ course }: { course: Course }) {
     'idle',
   )
   const [error, setError] = useState<string | null>(null)
+  const [delayMinutes, setDelayMinutes] = useState<number | null>(null)
 
   const start = async () => {
     setOpen(true)
@@ -103,7 +109,8 @@ export function DeleteCourseButton({ course }: { course: Course }) {
     setError(null)
     setPhase('requesting')
     try {
-      await requestCourseDeletion(course._id)
+      const { delayMinutes: delay } = await requestCourseDeletion(course._id)
+      setDelayMinutes(delay ?? null)
       setPhase('awaiting-otp')
     } catch (err) {
       setError(errorMessage(err))
@@ -138,8 +145,9 @@ export function DeleteCourseButton({ course }: { course: Course }) {
           <DialogHeader>
             <DialogTitle>Delete "{course.title}"?</DialogTitle>
             <DialogDescription>
-              For safety we emailed a 6-digit code to your account. Deletion happens 24 hours
-              after confirmation and can be cancelled until then.
+              For safety we emailed a 6-digit code to your account. Deletion happens{' '}
+              {delayMinutes ? formatMinutesWindow(delayMinutes) : 'a while'} after confirmation
+              and can be cancelled until then.
             </DialogDescription>
           </DialogHeader>
           {phase === 'requesting' ? (
